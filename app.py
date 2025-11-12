@@ -1,7 +1,7 @@
 import streamlit as st
 import pandas as pd
 from datetime import datetime, timezone
-from fetch_shows import update_all, get_events, purge_non_july_events
+from fetch_shows import update_all, get_events, purge_non_july_events, init_db
 from crawl_agemdaconcertmetal import crawl_concertsmetal  # make sure this file is in the same folder
 
 # --- Ensure database exists ---
@@ -12,7 +12,7 @@ st.set_page_config(page_title="USA Band Tracker", layout="wide")
 st.title("🎸 USA Road Trip Gig Tracker")
 
 # --- Unified Fetch + Debug sidebar ---
-
+st.subheader("🎸 Fetch New Shows")
 col1, col2 = st.columns([3, 1])
 
 with col1:
