@@ -86,9 +86,9 @@ else:
             st.warning("No shows match your filters.")
         else:
             for _, row in filtered_df.iterrows():
-                # Try to get event image if available (Ticketmaster always gives a few)
                 image_url = row.get("Image", None)
-                
+                url = row.get("URL", "")
+            
                 st.markdown(f"""
                 <div style="
                     background: #1e1e1e;
@@ -103,7 +103,7 @@ else:
                     🎶 <i>{row['Genre']}</i><br>
                     📍 {row['Venue']} — {row['City']}, {row['State']}<br>
                     🗓️ {row['Date'].strftime('%Y-%m-%d') if pd.notnull(row['Date']) else 'Unknown'}<br>
-                    <a href="{url_clean}" target="_blank" rel="noopener noreferrer"
+                    <a href="{url}" target="_blank" rel="noopener noreferrer"
                        style="display:inline-block;margin-top:6px;padding:6px 10px;
                        border-radius:8px;background:#2b6cb0;color:white;
                        text-decoration:none;font-weight:600;">
@@ -111,6 +111,7 @@ else:
                     </a>
                 </div>
                 """, unsafe_allow_html=True)
+
 
 
     # --- TABLE VIEW (optional) ---
