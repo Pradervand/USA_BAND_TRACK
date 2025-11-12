@@ -246,3 +246,22 @@ def update_all():
     init_db()
     added = fetch_ticketmaster()
     return added
+
+import sqlite3
+from datetime import datetime
+
+DB = "events.db"  # adjust if your DB path differs
+
+def purge_non_july_events():
+    conn = sqlite3.connect(DB)
+    cur = conn.cursor()
+    cur.execute("""
+        DELETE FROM events
+        WHERE strftime('%m', date) != '07'
+    """)
+    deleted = cur.rowcount
+    conn.commit()
+    conn.close()
+    print(f"🗑️ Removed {deleted} events outside July.")
+    return deleted
+
