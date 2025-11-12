@@ -3,7 +3,8 @@ import pandas as pd
 from datetime import datetime, timezone
 from fetch_shows import update_all, get_events, purge_non_july_events, init_db
 from crawl_agemdaconcertmetal import crawl_concertsmetal  # make sure this file is in the same folder
-from drive_sync import init_drive, download_db, upload_db
+from drive_sync import init_drive, upload_db, download_db
+
 
 # Initialize Google Drive and sync DB
 drive = init_drive()
