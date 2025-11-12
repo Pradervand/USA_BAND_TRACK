@@ -86,7 +86,9 @@ else:
             st.warning("No shows match your filters.")
         else:
             for _, row in filtered_df.iterrows():
-                url = row["URL"].replace("[Link](", "").replace(")", "").strip()  # quick clean
+                # Try to get event image if available (Ticketmaster always gives a few)
+                image_url = row.get("Image", None)
+                
                 st.markdown(f"""
                 <div style="
                     background: #1e1e1e;
@@ -96,18 +98,20 @@ else:
                     box-shadow: 0 0 10px rgba(0,0,0,0.3);
                     line-height: 1.6;
                 ">
+                    {f'<img src="{image_url}" style="width:100%;border-radius:10px;margin-bottom:0.7rem;">' if image_url else ''}
                     <b style="font-size:1.05rem;">🎤 {row['Artist']}</b><br>
                     🎶 <i>{row['Genre']}</i><br>
                     📍 {row['Venue']} — {row['City']}, {row['State']}<br>
                     🗓️ {row['Date'].strftime('%Y-%m-%d') if pd.notnull(row['Date']) else 'Unknown'}<br>
-                    <a href="{url}" target="_blank" rel="noopener noreferrer"
+                    <a href="{url_clean}" target="_blank" rel="noopener noreferrer"
                        style="display:inline-block;margin-top:6px;padding:6px 10px;
-                              border-radius:8px;background:#2b6cb0;color:white;
-                              text-decoration:none;font-weight:600;">
+                       border-radius:8px;background:#2b6cb0;color:white;
+                       text-decoration:none;font-weight:600;">
                        🎟️ Tickets / Info
                     </a>
                 </div>
                 """, unsafe_allow_html=True)
+
 
     # --- TABLE VIEW (optional) ---
     else:
