@@ -175,7 +175,10 @@ def crawl_concertsmetal():
             return asyncio.ensure_future(crawl_concertsmetal_async())
     except RuntimeError:
         pass
-    return asyncio.run(crawl_concertsmetal_async())
+    import nest_asyncio
+    nest_asyncio.apply()
+    return asyncio.get_event_loop().run_until_complete(crawl_concertsmetal_async())
+
 
 
 if __name__ == "__main__":
