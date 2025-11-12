@@ -68,7 +68,7 @@ def save_event(e):
     conn.close()
 
 def fetch_ticketmaster():
-    """Fetch metal/punk/goth shows from Ticketmaster for 2026 by keyword per state."""
+    """Fetch metal/punk/goth shows from Ticketmaster for 2026."""
     new_events = 0
     base_url = "https://app.ticketmaster.com/discovery/v2/events.json"
 
@@ -83,17 +83,30 @@ def fetch_ticketmaster():
                 "startDateTime": START_DATE,
                 "endDateTime": END_DATE,
             }
+
             try:
                 r = requests.get(base_url, params=params, timeout=15)
                 if r.status_code != 200:
-                    print(f"⚠️ Error {r.status_code} for {st}, {kw}")
+                    print(f"⚠️ Error {r.status_code} for {st} / {kw}")
                     continue
 
                 events = r.json().get("_embedded", {}).get("events", [])
                 for ev in events:
-                    name = ev.get("name", "")
-                    # still double-check keyword match in case of false positives
-                    if not any(k in name.lower() for k in KEYWORDS):
+                    name = ev.get("name", "").lower()
+
+                    # --- Check genre and subgenre ---
+                    genres = []
+                    for c in ev.get("classifications", []):
+                        for gkey in ["genre", "subGenre", "segment"]:
+                            g = c.get(gkey, {}).get("name", "")
+                            if g:
+                                genres.append(g.lower())
+
+                    # keep if name or genre/subgenre matches any keyword
+                    match = any(k in name for k in KEYWORDS) or any(
+                        k in g for g in genres for k in KEYWORDS
+                    )
+                    if not match:
                         continue
 
                     venues = ev.get("_embedded", {}).get("venues", [{}])
@@ -107,7 +120,7 @@ def fetch_ticketmaster():
                     if not already_seen(eid):
                         save_event({
                             "id": eid,
-                            "artist": name,
+                            "artist": ev.get("name", ""),
                             "venue": venue,
                             "city": city,
                             "state": state,
@@ -117,14 +130,11 @@ def fetch_ticketmaster():
                         })
                         new_events += 1
 
-                # optional: short delay to avoid hitting API rate limits
-                # time.sleep(0.3)
-
             except Exception as e:
                 print(f"❌ Exception fetching {st} / {kw}: {e}")
 
     return new_events
-import time
+
 
 
 
