@@ -84,7 +84,7 @@ def save_event(e):
 # ─────────────────────────── API CALL ────────────────────────────
 
 def fetch_ticketmaster():
-    """Fetch all music events once per state, then locally filter by subgenres."""
+    """Fetch all music events once per state, then locally filter by genre/subgenre against KEYWORDS."""
     new_events = 0
     base_url = "https://app.ticketmaster.com/discovery/v2/events.json"
 
@@ -92,6 +92,7 @@ def fetch_ticketmaster():
         params = {
             "apikey": TM_API_KEY,
             "classificationName": "music",
+            "countryCode": "US",
             "stateCode": st,
             "startDateTime": START_DATE,
             "endDateTime": END_DATE,
@@ -104,33 +105,28 @@ def fetch_ticketmaster():
                 print(f"⚠️ Error {r.status_code} for {st}")
                 continue
 
-            # handle pagination
             data = r.json()
-            events = []
-            while True:
-                chunk = data.get("_embedded", {}).get("events", [])
-                events.extend(chunk)
-                next_link = data.get("_links", {}).get("next", {}).get("href")
-                if not next_link:
-                    break
-                time.sleep(0.5)
-                next_url = f"https://app.ticketmaster.com{next_link}&apikey={TM_API_KEY}"
-                data = requests.get(next_url, timeout=15).json()
+            events = data.get("_embedded", {}).get("events", [])
+            print(f"📀 {len(events)} total events fetched for {st}")
 
             for ev in events:
                 name = ev.get("name", "").lower()
-                classifications = ev.get("classifications", [])
-                genre = subgenre = ""
-                if classifications:
-                    g = classifications[0].get("genre", {}).get("name", "")
-                    sg = classifications[0].get("subGenre", {}).get("name", "")
-                    genre = g or ""
-                    subgenre = sg or ""
-                
-                text = f"{name} {genre} {subgenre}".lower()
-                if not any(k in text for k in KEYWORDS):
+
+                # Pull structured genre/subgenre data
+                genre = ""
+                subgenre = ""
+                if "classifications" in ev and ev["classifications"]:
+                    c = ev["classifications"][0]
+                    genre = (c.get("genre", {}) or {}).get("name", "")
+                    subgenre = (c.get("subGenre", {}) or {}).get("name", "")
+
+                genre_lower = f"{genre} {subgenre}".lower()
+
+                # Check if any keyword matches genre/subgenre text
+                if not any(k in genre_lower for k in KEYWORDS):
                     continue
 
+                # Extract venue/location data
                 venues = ev.get("_embedded", {}).get("venues", [{}])
                 venue = venues[0].get("name", "Unknown Venue")
                 city = venues[0].get("city", {}).get("name", "Unknown")
@@ -149,15 +145,19 @@ def fetch_ticketmaster():
                         "genre": f"{genre} / {subgenre}",
                         "date": date,
                         "url": url,
-                        "source": "Ticketmaster"
+                        "source": "Ticketmaster",
                     })
                     new_events += 1
 
         except Exception as e:
             print(f"❌ Exception fetching {st}: {e}")
 
-    print(f"✅ Added {new_events} new Ticketmaster events.")
+        # slight delay to avoid rate limiting
+        time.sleep(0.5)
+
+    print(f"✅ Added {new_events} new events after filtering by genre/subgenre.")
     return new_events
+
 
 # ─────────────────────────── RETRIEVAL ────────────────────────────
 
