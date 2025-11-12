@@ -3,7 +3,21 @@ import pandas as pd
 from datetime import datetime, timezone
 from fetch_shows import update_all, get_events, purge_non_july_events, init_db
 from crawl_agemdaconcertmetal import crawl_concertsmetal  # make sure this file is in the same folder
+from drive_sync import init_drive, download_db, upload_db
 
+# Initialize Google Drive and sync DB
+drive = init_drive()
+FOLDER_ID = st.secrets["GOOGLE_DRIVE_FOLDER_ID"]
+os.makedirs("data", exist_ok=True)
+
+# Download DB at startup
+download_db(drive, folder_id=FOLDER_ID)
+init_db()  # your existing DB init
+
+# Upload DB after fetch
+if st.button("🌍 Fetch ALL Sources"):
+    ...
+    upload_db(drive, folder_id=FOLDER_ID)
 # --- Ensure database exists ---
 init_db()
 purge_non_july_events()
