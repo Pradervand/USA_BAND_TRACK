@@ -7,8 +7,8 @@ from drive_sync import init_drive, upload_db, download_db
 
 
 # Initialize Google Drive and sync DB
-drive = init_drive()
-FOLDER_ID = st.secrets["GOOGLE_DRIVE_FOLDER_ID"]
+drive_service = init_drive()
+folder_id = st.secrets["GOOGLE_DRIVE_FOLDER_ID"]
 os.makedirs("data", exist_ok=True)
 
 # Download DB at startup
