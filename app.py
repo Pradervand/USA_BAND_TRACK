@@ -70,7 +70,10 @@ else:
         return ""
 
     # --- Display ---
-    st.dataframe(
+    st.data_editor(
         df.style.map(color_by_genre, subset=["Genre"]),
         use_container_width=True,
+        hide_index=True,
+        disabled=True
     )
+
