@@ -17,12 +17,19 @@ else:
     df["URL"] = df["URL"].apply(lambda x: f"[Link]({x})")
 
     def color_by_genre(val):
-        val = val.lower()
-        if "metal" in val: return "background-color: #444; color: white;"
-        if "punk" in val: return "background-color: #c00; color: white;"
-        if "goth" in val or "dark" in val: return "background-color: #551a8b; color: white;"
-        if "industrial" in val or "ebm" in val: return "background-color: #006; color: white;"
+        if not val:
+            return ""
+        val = str(val).lower()
+        if "metal" in val:
+            return "background-color: #444; color: white;"
+        if "punk" in val:
+            return "background-color: #c00; color: white;"
+        if "goth" in val or "dark" in val or "wave" in val:
+            return "background-color: #505050; color: white;"
+        if "industrial" in val or "ebm" in val or "electro" in val:
+            return "background-color: #333366; color: white;"
         return ""
+
 
     st.dataframe(
         df.style.map(color_by_genre, subset=["Genre"]),
