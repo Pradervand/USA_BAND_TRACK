@@ -80,12 +80,25 @@ else:
 
 
     # --- CARD VIEW (default) ---
+    # --- CARD VIEW (default) ---
     if not show_table:
         st.markdown("### 📅 Upcoming Shows (Card View)")
         if filtered_df.empty:
             st.warning("No shows match your filters.")
         else:
             for _, row in filtered_df.iterrows():
+                raw_db_val = row["URL"]
+                url_clean = extract_clean_url(raw_db_val)
+    
+                link_html = (
+                    f'<a href="{url_clean}" target="_blank" rel="noopener noreferrer" '
+                    'style="display:inline-block;margin-top:6px;padding:6px 10px;'
+                    'border-radius:8px;background:#2b6cb0;color:white;'
+                    'text-decoration:none;font-weight:600;">🎟️ Tickets / Info</a>'
+                    if url_clean
+                    else "<span style='color:#888;'>No link available</span>"
+                )
+    
                 st.markdown(f"""
                 <div style="
                     background: #1e1e1e;
@@ -93,17 +106,15 @@ else:
                     padding: 1rem;
                     margin-bottom: 0.8rem;
                     box-shadow: 0 0 10px rgba(0,0,0,0.3);
+                    line-height: 1.6;
                 ">
-                    <b style="font-size:1.1rem;">🎤 {row['Artist']}</b><br>
+                    <b style="font-size:1.05rem;">🎤 {row['Artist']}</b><br>
                     🎶 <i>{row['Genre']}</i><br>
                     📍 {row['Venue']} — {row['City']}, {row['State']}<br>
                     🗓️ {row['Date'].strftime('%Y-%m-%d') if pd.notnull(row['Date']) else 'Unknown'}<br>
+                    {link_html}
                 </div>
                 """, unsafe_allow_html=True)
-    
-                # Render the link markdown cleanly below the card
-                if row["URL"]:
-                    st.markdown(row["URL"])
 
     # --- TABLE VIEW (optional) ---
     else:
