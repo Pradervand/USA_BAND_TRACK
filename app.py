@@ -70,10 +70,66 @@ else:
         return ""
 
     # --- Display ---
-    st.data_editor(
-        df.style.map(color_by_genre, subset=["Genre"]),
-        use_container_width=True,
-        hide_index=True,
-        disabled=True
-    )
+    # --- Load and display data ---
+    data = get_events()
+    
+    if not data:
+        st.info("No events stored yet — click 'Fetch latest shows' above.")
+    else:
+        df = pd.DataFrame(
+            data,
+            columns=["Artist", "Genre", "Venue", "City", "State", "Date", "URL", "Source"]
+        )
+    
+        df["URL"] = df["URL"].apply(lambda x: f"[Link]({x})")
+        df["Date"] = pd.to_datetime(df["Date"], errors="coerce")
+        df = df[df["Date"].dt.month == 7]
+    
+        # --- Genre-based coloring ---
+        def color_by_genre(val):
+            if not val:
+                return ""
+            val = str(val).lower()
+            if "metal" in val:
+                return "background-color: #444; color: white;"
+            if "punk" in val:
+                return "background-color: #c00; color: white;"
+            if "goth" in val or "dark" in val or "wave" in val:
+                return "background-color: #505050; color: white;"
+            if "industrial" in val or "ebm" in val or "electro" in val:
+                return "background-color: #333366; color: white;"
+            return ""
+    
+        # --- Try to detect narrow screens ---
+        # Streamlit doesn't give direct viewport width, but we can use user preference
+        mode = st.radio(
+            "Display mode",
+            ["📊 Table view", "📱 Card view (responsive)"],
+            horizontal=True,
+        )
+    
+        if mode == "📊 Table view":
+            # Wrapped text for narrow cells
+            df["Artist"] = df["Artist"].apply(lambda x: "\n".join(x[i:i+25] for i in range(0, len(x), 25)))
+            df["Venue"] = df["Venue"].apply(lambda x: "\n".join(x[i:i+20] for i in range(0, len(x), 20)))
+    
+            st.data_editor(
+                df.style.map(color_by_genre, subset=["Genre"]),
+                use_container_width=True,
+                hide_index=True,
+                disabled=True
+            )
+        else:
+            # --- Card mode for mobile / vertical screens ---
+            for _, row in df.iterrows():
+                with st.container():
+                    st.markdown(f"""
+                    **🎤 {row['Artist']}**
+                    - 🎶 *{row['Genre']}*
+                    - 📍 {row['Venue']} — {row['City']}, {row['State']}
+                    - 🗓️ {row['Date'].strftime('%Y-%m-%d') if pd.notnull(row['Date']) else 'Unknown'}
+                    - 🔗 {row['URL']}
+                    ---
+                    """)
+
 
