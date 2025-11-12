@@ -137,39 +137,58 @@ else:
         return ""
 
     show_table = st.toggle("📊 Show table view", value=False)
-    if not show_table:
-        st.markdown("### 📅 Upcoming Shows (Card View)")
-        if filtered_df.empty:
-            st.warning("No shows match your filters.")
-        else:
-            for _, row in filtered_df.iterrows():
-                image_url = row.get("Image", None)
-                url = row.get("URL_raw", "")
-                st.markdown(f"""
-                <div style="
-                    background: #1e1e1e;
-                    border-radius: 12px;
-                    padding: 1rem;
-                    margin-bottom: 0.8rem;
-                    box-shadow: 0 0 10px rgba(0,0,0,0.3);
-                    display: flex;
-                    align-items: center;
-                ">
-                    {'<img src="'+image_url+'" style="width:130px;height:auto;border-radius:8px;margin-right:1rem;object-fit:cover;">' if image_url else ''}
-                    <div style="flex:1;line-height:1.6;">
-                        <b style="font-size:1.05rem;">🎤 {row['Artist']}</b><br>
-                        🎶 <i>{row['Genre']}</i><br>
-                        📍 {row['Venue']} — {row['City']}, {row['State']}<br>
-                        🗓️ {row['Date'].strftime('%Y-%m-%d') if pd.notnull(row['Date']) else 'Unknown'}<br>
-                        <a href="{url}" target="_blank" rel="noopener noreferrer"
-                           style="display:inline-block;margin-top:6px;padding:6px 10px;
-                           border-radius:8px;background:#2b6cb0;color:white;
-                           text-decoration:none;font-weight:600;">
-                           🎟️ Tickets / Info
-                        </a>
-                    </div>
+# --- CARD VIEW (default) ---
+if not show_table:
+    st.markdown("### 📅 Upcoming Shows (Card View)")
+    if filtered_df.empty:
+        st.warning("No shows match your filters.")
+    else:
+        grouped = filtered_df.groupby("Artist")
+
+        for artist, group in grouped:
+            # Sort by date so the earliest one shows first
+            group = group.sort_values(by="Date")
+            main = group.iloc[0]
+            others = group.iloc[1:]
+
+            image_url = main.get("Image", None)
+            url = main.get("URL_raw", "")
+            date_str = main["Date"].strftime("%Y-%m-%d") if pd.notnull(main["Date"]) else "Unknown"
+
+            st.markdown(f"""
+            <div style="
+                background: #1e1e1e;
+                border-radius: 12px;
+                padding: 1rem;
+                margin-bottom: 0.8rem;
+                box-shadow: 0 0 10px rgba(0,0,0,0.3);
+                display: flex;
+                align-items: center;
+            ">
+                {'<img src="'+image_url+'" style="width:130px;height:auto;border-radius:8px;margin-right:1rem;object-fit:cover;">' if image_url else ''}
+                <div style="flex:1;line-height:1.6;">
+                    <b style="font-size:1.05rem;">🎤 {main['Artist']}</b><br>
+                    🎶 <i>{main['Genre']}</i><br>
+                    📍 {main['Venue']} — {main['City']}, {main['State']}<br>
+                    🗓️ {date_str}<br>
+                    <a href="{url}" target="_blank" rel="noopener noreferrer"
+                       style="display:inline-block;margin-top:6px;padding:6px 10px;
+                       border-radius:8px;background:#2b6cb0;color:white;
+                       text-decoration:none;font-weight:600;">
+                       🎟️ Tickets / Info
+                    </a>
                 </div>
-                """, unsafe_allow_html=True)
+            </div>
+            """, unsafe_allow_html=True)
+
+            # Show more tour dates if they exist
+            if len(others) > 0:
+                with st.expander(f"📅 Click to view {len(others)} more shows for {artist}"):
+                    for _, row in others.iterrows():
+                        d = row["Date"].strftime("%Y-%m-%d") if pd.notnull(row["Date"]) else "Unknown"
+                        st.markdown(f"**{d}** — {row['Venue']} ({row['City']}, {row['State']})  \n"
+                                    f"[🎟 Open link]({row['URL_raw']})")
+
     else:
         st.markdown("### 📊 Table View")
         if filtered_df.empty:
