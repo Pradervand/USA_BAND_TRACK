@@ -5,7 +5,7 @@ from datetime import datetime
 
 st.set_page_config(page_title="USA Band Tracker", layout="wide")
 
-st.title("🎸 USA Band Tracker — Metal / Punk / Goth / Industrial")
+st.title("🎸 Road Trip potential shows")
 
 # --- Fetch new events ---
 if st.button("🔄 Fetch latest shows"):
