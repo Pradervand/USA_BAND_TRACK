@@ -1,47 +1,59 @@
 # drive_sync.py
 import streamlit as st
-import json
 import os
-from pydrive2.auth import GoogleAuth
-from pydrive2.drive import GoogleDrive
+import json
+from google.oauth2 import service_account
+from googleapiclient.discovery import build
+from googleapiclient.http import MediaFileUpload, MediaIoBaseDownload
+import io
 
 def init_drive():
-    """Initialize Google Drive client using a service account."""
-    creds = st.secrets["GOOGLE_DRIVE_SERVICE_ACCOUNT"]
-
-    creds_path = "/tmp/service_account.json"
-    with open(creds_path, "w") as f:
-        json.dump(creds, f)
-
-    # Create GoogleAuth instance and set config manually
-    gauth = GoogleAuth()
-    gauth.settings['client_config_backend'] = 'service'
-    gauth.settings['service_config'] = {'client_json_file_path': creds_path}
-
-    gauth.ServiceAuth()
-    return GoogleDrive(gauth)
+    """Initialize Google Drive service using Streamlit secret."""
+    creds_dict = st.secrets["GOOGLE_DRIVE_SERVICE_ACCOUNT"]
+    creds = service_account.Credentials.from_service_account_info(
+        creds_dict,
+        scopes=["https://www.googleapis.com/auth/drive.file"]
+    )
+    return build("drive", "v3", credentials=creds)
 
 
-def upload_db(drive, folder_id=""):
-    """Upload local events.db to Google Drive."""
-    local_path = "events.db"
-    if not os.path.exists(local_path):
+def upload_db(service, folder_id):
+    """Upload local events.db to Google Drive (replace existing one)."""
+    file_name = "events.db"
+    if not os.path.exists(file_name):
         return False
 
-    # Remove existing versions
-    for file in drive.ListFile({'q': f"'{folder_id}' in parents and title='events.db' and trashed=false"}).GetList():
-        file.Delete()
+    # Delete existing file
+    results = service.files().list(
+        q=f"'{folder_id}' in parents and name='{file_name}' and trashed=false",
+        fields="files(id)"
+    ).execute()
+    for f in results.get("files", []):
+        service.files().delete(fileId=f["id"]).execute()
 
-    f = drive.CreateFile({'title': 'events.db', 'parents': [{'id': folder_id}]})
-    f.SetContentFile(local_path)
-    f.Upload()
+    # Upload new file
+    file_metadata = {"name": file_name, "parents": [folder_id]}
+    media = MediaFileUpload(file_name, mimetype="application/x-sqlite3")
+    service.files().create(body=file_metadata, media_body=media, fields="id").execute()
     return True
 
 
-def download_db(drive, folder_id=""):
+def download_db(service, folder_id):
     """Download events.db from Google Drive."""
-    files = drive.ListFile({'q': f"'{folder_id}' in parents and title='events.db' and trashed=false"}).GetList()
+    results = service.files().list(
+        q=f"'{folder_id}' in parents and name='events.db' and trashed=false",
+        fields="files(id, name)"
+    ).execute()
+
+    files = results.get("files", [])
     if not files:
         return False
-    files[0].GetContentFile("events.db")
+
+    file_id = files[0]["id"]
+    request = service.files().get_media(fileId=file_id)
+    with io.FileIO("events.db", "wb") as fh:
+        downloader = MediaIoBaseDownload(fh, request)
+        done = False
+        while not done:
+            status, done = downloader.next_chunk()
     return True
