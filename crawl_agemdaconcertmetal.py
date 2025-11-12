@@ -112,15 +112,18 @@ async def parse_state_page(session, state):
                 city = parts[0]
             if len(parts) >= 2:
                 venue = parts[1]
-
+        eid = "cm_" + href.split("-")[-1].replace(".html", "")
         shows.append({
-            "Artist": artist,
-            "Venue": venue,
-            "City": city,
-            "State": state,
-            "Date": date_obj.strftime("%Y-%m-%d"),
-            "URL": f"{BASE_URL}/{href}",
-            "Source": "Concerts-Metal",
+            "id": eid,                               # ✅ add this back for DB
+            "artist": artist,
+            "genre": genre,
+            "venue": venue,
+            "city": city,
+            "state": state,
+            "date": date_obj.strftime("%Y-%m-%d"),
+            "url": f"{BASE_URL}/{href}",
+            "source": "Concerts-Metal",
+            "image": image_url,                      # if already fetched
         })
 
     return shows
