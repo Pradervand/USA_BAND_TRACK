@@ -3,7 +3,7 @@ import pandas as pd
 from datetime import datetime, timezone
 from fetch_shows import update_all, get_events, purge_non_july_events, init_db
 from crawl_agemdaconcertmetal import crawl_concertsmetal
-from fetch_seatgeek import fetch_seatgeek  # ✅ new module
+from fetch_seatgeek import fetch_seatgeek
 
 # --- Ensure database exists ---
 init_db()
@@ -19,7 +19,6 @@ with col1:
     if st.button("🌍 Fetch ALL Sources"):
         st.info("Fetching shows from all sources... please wait ⏳")
         total = 0
-
         try:
             n_tm = update_all()
         except Exception as exc:
@@ -33,7 +32,7 @@ with col1:
             n_cm = 0
 
         try:
-            n_sg = fetch_seatgeek(test_mode=False)  # ✅ SeatGeek integration
+            n_sg = fetch_seatgeek(test_mode=False)
         except Exception as exc:
             st.error(f"SeatGeek fetch failed: {exc}")
             n_sg = 0
@@ -136,7 +135,19 @@ else:
             return "background-color: #333366; color: white;"
         return ""
 
+    # --- Duplicate grouping helper ---
+    def find_duplicates(df, artist, city, date):
+        """Return possible duplicates (same artist, city, date, different source)."""
+        mask = (
+            (df["Artist"].str.lower() == artist.lower())
+            & (df["City"].str.lower() == city.lower())
+            & (df["Date"] == date)
+        )
+        return df[mask]
+
     show_table = st.toggle("📊 Show table view", value=False)
+    show_duplicates = st.toggle("🔍 Show possible duplicates?", value=True)
+
     # --- CARD VIEW (default) ---
     if not show_table:
         st.markdown("### 📅 Upcoming Shows (Card View)")
@@ -144,17 +155,16 @@ else:
             st.warning("No shows match your filters.")
         else:
             grouped = filtered_df.groupby("Artist")
-    
+
             for artist, group in grouped:
-                # Sort by date so the earliest one shows first
                 group = group.sort_values(by="Date")
                 main = group.iloc[0]
                 others = group.iloc[1:]
-    
+
                 image_url = main.get("Image", None)
                 url = main.get("URL_raw", "")
                 date_str = main["Date"].strftime("%Y-%m-%d") if pd.notnull(main["Date"]) else "Unknown"
-    
+
                 st.markdown(f"""
                 <div style="
                     background: #1e1e1e;
@@ -180,15 +190,48 @@ else:
                     </div>
                 </div>
                 """, unsafe_allow_html=True)
-    
-                # Show more tour dates if they exist
+
+                # --- Tour shows (same artist, diff cities) ---
                 if len(others) > 0:
-                    with st.expander(f"📅 Click to view {len(others)} more shows for {artist}"):
+                    with st.expander(f"📅 View {len(others)} more shows for {artist}"):
                         for _, row in others.iterrows():
                             d = row["Date"].strftime("%Y-%m-%d") if pd.notnull(row["Date"]) else "Unknown"
                             st.markdown(f"**{d}** — {row['Venue']} ({row['City']}, {row['State']})  \n"
                                         f"[🎟 Open link]({row['URL_raw']})")
 
+                # --- Possible duplicates (same artist, same city, same date) ---
+                if show_duplicates:
+                    dupes = find_duplicates(filtered_df, main["Artist"], main["City"], main["Date"])
+                    dupes = dupes[dupes["Source"] != main["Source"]]
+                    if len(dupes) > 0:
+                        with st.expander(f"🔍 Possible duplicates ({len(dupes)})"):
+                            for _, dup in dupes.iterrows():
+                                d = dup["Date"].strftime("%Y-%m-%d") if pd.notnull(dup["Date"]) else "Unknown"
+                                st.markdown(f"""
+                                <div style="
+                                    background:#292929;
+                                    border-radius:8px;
+                                    padding:0.7rem;
+                                    margin-bottom:0.5rem;
+                                    display:flex;
+                                    align-items:center;
+                                ">
+                                    {'<img src="'+dup['Image']+'" style="width:90px;height:auto;border-radius:6px;margin-right:1rem;object-fit:cover;">' if dup['Image'] else ''}
+                                    <div style="flex:1;">
+                                        <b>{dup['Artist']}</b> — {dup['Venue']}<br>
+                                        🗓️ {d}<br>
+                                        🌐 {dup['Source']}<br>
+                                        <a href="{dup['URL_raw']}" target="_blank" rel="noopener noreferrer"
+                                           style="display:inline-block;margin-top:4px;padding:4px 8px;
+                                           border-radius:6px;background:#3b82f6;color:white;
+                                           text-decoration:none;font-size:0.85rem;">
+                                           🔗 Open Link
+                                        </a>
+                                    </div>
+                                </div>
+                                """, unsafe_allow_html=True)
+
+    # --- TABLE VIEW ---
     else:
         st.markdown("### 📊 Table View")
         if filtered_df.empty:
