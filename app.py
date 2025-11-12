@@ -2,14 +2,36 @@ import streamlit as st
 import pandas as pd
 from datetime import datetime, timezone
 from fetch_shows import update_all, get_events, purge_non_july_events, init_db
-
+from crawl_agemdaconcertmetal import crawl_concertsmetal
 # --- Ensure database exists ---
 init_db()
 purge_non_july_events()
 
 st.set_page_config(page_title="USA Band Tracker", layout="wide")
 st.title("🎸 USA Road Trip Gig Tracker")
-
+with col1:
+    if st.button("🌍 Fetch ALL Sources"):
+        st.info("Fetching shows from all sources... please wait ⏳")
+        try:
+            n_tm = update_all()
+        except Exception as exc:
+            st.error(f"Ticketmaster fetch failed: {exc}")
+            n_tm = 0
+        try:
+            n_cm = crawl_concertsmetal()
+        except Exception as exc:
+            st.error(f"Concerts-Metal fetch failed: {exc}")
+            n_cm = 0
+        try:
+            purge_non_july_events()
+        except Exception as exc:
+            st.warning(f"Warning while purging non-July events: {exc}")
+        total = (n_tm or 0) + (n_cm or 0)
+        st.success(
+            f"✅ Added {total} new shows! "
+            f"(Ticketmaster: {n_tm}, Concerts-Metal: {n_cm})\n\n"
+            f"(Last updated {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M UTC')})"
+        )
 # --- Fetch new events ---
 if st.button("🔄 Fetch latest shows"):
     n = update_all()
