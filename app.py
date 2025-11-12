@@ -45,7 +45,8 @@ if st.button("🚀 Update All Data"):
 # --- DISPLAY EVENTS ---
 st.subheader("🎵 Current Shows in Database")
 
-events = get_events()
+events = pd.DataFrame(get_events())
+
 if not events.empty:
     events["date"] = pd.to_datetime(events["date"], errors="coerce")
     events = events.sort_values(by="date")
