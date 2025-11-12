@@ -69,67 +69,90 @@ else:
             return "background-color: #333366; color: white;"
         return ""
 
-    # --- Display ---
-    # --- Load and display data ---
-    data = get_events()
-    
-    if not data:
-        st.info("No events stored yet — click 'Fetch latest shows' above.")
-    else:
-        df = pd.DataFrame(
-            data,
-            columns=["Artist", "Genre", "Venue", "City", "State", "Date", "URL", "Source"]
+# --- Load and display data ---
+data = get_events()
+
+if not data:
+    st.info("No events stored yet — click 'Fetch latest shows' above.")
+else:
+    df = pd.DataFrame(
+        data,
+        columns=["Artist", "Genre", "Venue", "City", "State", "Date", "URL", "Source"]
+    )
+
+    # Format & clean
+    df["URL"] = df["URL"].apply(lambda x: f"[Link]({x})")
+    df["Date"] = pd.to_datetime(df["Date"], errors="coerce")
+    df = df[df["Date"].dt.month == 7]  # Only July shows
+
+    # --- Filters ---
+    col1, col2 = st.columns(2)
+
+    with col1:
+        state_filter = st.multiselect(
+            "Filter by State",
+            options=sorted(df["State"].unique()),
+            default=[],
         )
-    
-        df["URL"] = df["URL"].apply(lambda x: f"[Link]({x})")
-        df["Date"] = pd.to_datetime(df["Date"], errors="coerce")
-        df = df[df["Date"].dt.month == 7]
-    
-        # --- Genre-based coloring ---
-        def color_by_genre(val):
-            if not val:
-                return ""
-            val = str(val).lower()
-            if "metal" in val:
-                return "background-color: #444; color: white;"
-            if "punk" in val:
-                return "background-color: #c00; color: white;"
-            if "goth" in val or "dark" in val or "wave" in val:
-                return "background-color: #505050; color: white;"
-            if "industrial" in val or "ebm" in val or "electro" in val:
-                return "background-color: #333366; color: white;"
+
+    with col2:
+        genre_filter = st.multiselect(
+            "Filter by Genre (OR)",
+            options=sorted(set(g.strip() for g in ", ".join(df["Genre"].dropna()).split("/") if g)),
+            default=[],
+        )
+
+    filtered_df = df.copy()
+    if state_filter:
+        filtered_df = filtered_df[filtered_df["State"].isin(state_filter)]
+    if genre_filter:
+        filtered_df = filtered_df[filtered_df["Genre"].apply(
+            lambda x: any(g.lower() in x.lower() for g in genre_filter)
+        )]
+
+    # --- Genre color styling for table view ---
+    def color_by_genre(val):
+        if not val:
             return ""
-    
-        # --- Try to detect narrow screens ---
-        # Streamlit doesn't give direct viewport width, but we can use user preference
-        mode = st.radio(
-            "Display mode",
-            ["📊 Table view", "📱 Card view (responsive)"],
-            horizontal=True,
+        val = str(val).lower()
+        if "metal" in val:
+            return "background-color: #444; color: white;"
+        if "punk" in val:
+            return "background-color: #c00; color: white;"
+        if "goth" in val or "dark" in val or "wave" in val:
+            return "background-color: #505050; color: white;"
+        if "industrial" in val or "ebm" in val or "electro" in val:
+            return "background-color: #333366; color: white;"
+        return ""
+
+    # --- Toggle for Table view ---
+    show_table = st.toggle("📊 Show table view", value=False)
+
+    # --- CARD VIEW (default) ---
+    if not show_table:
+        st.markdown("### 📅 Upcoming Shows (Card View)")
+        for _, row in filtered_df.iterrows():
+            st.markdown(f"""
+            <div style="
+                background: #1e1e1e;
+                border-radius: 12px;
+                padding: 1rem;
+                margin-bottom: 0.7rem;
+                box-shadow: 0 0 10px rgba(0,0,0,0.3);
+            ">
+                <b style="font-size:1.1rem;">🎤 {row['Artist']}</b><br>
+                🎶 <i>{row['Genre']}</i><br>
+                📍 {row['Venue']} — {row['City']}, {row['State']}<br>
+                🗓️ {row['Date'].strftime('%Y-%m-%d') if pd.notnull(row['Date']) else 'Unknown'}<br>
+                🔗 {row['URL']}
+            </div>
+            """, unsafe_allow_html=True)
+
+    # --- TABLE VIEW (optional) ---
+    else:
+        st.markdown("### 📊 Table View")
+        st.dataframe(
+            filtered_df.style.map(color_by_genre, subset=["Genre"]),
+            use_container_width=True,
+            hide_index=True
         )
-    
-        if mode == "📊 Table view":
-            # Wrapped text for narrow cells
-            df["Artist"] = df["Artist"].apply(lambda x: "\n".join(x[i:i+25] for i in range(0, len(x), 25)))
-            df["Venue"] = df["Venue"].apply(lambda x: "\n".join(x[i:i+20] for i in range(0, len(x), 20)))
-    
-            st.data_editor(
-                df.style.map(color_by_genre, subset=["Genre"]),
-                use_container_width=True,
-                hide_index=True,
-                disabled=True
-            )
-        else:
-            # --- Card mode for mobile / vertical screens ---
-            for _, row in df.iterrows():
-                with st.container():
-                    st.markdown(f"""
-                    **🎤 {row['Artist']}**
-                    - 🎶 *{row['Genre']}*
-                    - 📍 {row['Venue']} — {row['City']}, {row['State']}
-                    - 🗓️ {row['Date'].strftime('%Y-%m-%d') if pd.notnull(row['Date']) else 'Unknown'}
-                    - 🔗 {row['URL']}
-                    ---
-                    """)
-
-
