@@ -21,7 +21,10 @@ TEST_MODE = False
 RETRY_LIMIT = 2
 THROTTLE_DELAY = 1.0
 # ----------------
-
+# --- Ensure we use the same persistent DB ---
+DB = fetch_shows.DB
+if not os.path.exists(os.path.dirname(DB)):
+    os.makedirs(os.path.dirname(DB), exist_ok=True)
 
 # =============================
 # HTTP FETCH WITH RETRIES
