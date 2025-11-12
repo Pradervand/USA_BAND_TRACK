@@ -96,21 +96,25 @@ else:
                     padding: 1rem;
                     margin-bottom: 0.8rem;
                     box-shadow: 0 0 10px rgba(0,0,0,0.3);
-                    line-height: 1.6;
+                    display: flex;
+                    align-items: center;
                 ">
-                    {f'<img src="{image_url}" style="width:100%;border-radius:10px;margin-bottom:0.7rem;">' if image_url else ''}
-                    <b style="font-size:1.05rem;">🎤 {row['Artist']}</b><br>
-                    🎶 <i>{row['Genre']}</i><br>
-                    📍 {row['Venue']} — {row['City']}, {row['State']}<br>
-                    🗓️ {row['Date'].strftime('%Y-%m-%d') if pd.notnull(row['Date']) else 'Unknown'}<br>
-                    <a href="{url}" target="_blank" rel="noopener noreferrer"
-                       style="display:inline-block;margin-top:6px;padding:6px 10px;
-                       border-radius:8px;background:#2b6cb0;color:white;
-                       text-decoration:none;font-weight:600;">
-                       🎟️ Tickets / Info
-                    </a>
+                    {'<img src="'+image_url+'" style="width:130px;height:auto;border-radius:8px;margin-right:1rem;object-fit:cover;">' if image_url else ''}
+                    <div style="flex:1;line-height:1.6;">
+                        <b style="font-size:1.05rem;">🎤 {row['Artist']}</b><br>
+                        🎶 <i>{row['Genre']}</i><br>
+                        📍 {row['Venue']} — {row['City']}, {row['State']}<br>
+                        🗓️ {row['Date'].strftime('%Y-%m-%d') if pd.notnull(row['Date']) else 'Unknown'}<br>
+                        <a href="{row['URL']}" target="_blank" rel="noopener noreferrer"
+                           style="display:inline-block;margin-top:6px;padding:6px 10px;
+                           border-radius:8px;background:#2b6cb0;color:white;
+                           text-decoration:none;font-weight:600;">
+                           🎟️ Tickets / Info
+                        </a>
+                    </div>
                 </div>
                 """, unsafe_allow_html=True)
+
 
 
 
