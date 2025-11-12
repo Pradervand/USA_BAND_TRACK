@@ -80,7 +80,7 @@ else:
 
 
     # --- CARD VIEW (default) ---
-    f not show_table:
+    if not show_table:
         st.markdown("### 📅 Upcoming Shows (Card View)")
         if filtered_df.empty:
             st.warning("No shows match your filters.")
