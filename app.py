@@ -1,6 +1,5 @@
-# app.py
 import streamlit as st
-from fetch_shows import update_all, get_events
+from fetch_shows import update_all, get_events, init_db
 import pandas as pd
 import datetime
 import os
@@ -9,6 +8,9 @@ st.set_page_config(page_title="🤘 Metal / Punk / Goth Show Radar", layout="wid
 
 st.title("🤘 Metal / Punk / Goth Show Radar (2026)")
 st.caption("Tracking heavy music shows in CA, AZ, UT, CO, WY, MT, WA using Ticketmaster API")
+
+# ✅ Ensure the SQLite table exists before anything else
+init_db()
 
 # Ensure API key is set
 if not os.getenv("TM_API_KEY"):
@@ -38,8 +40,6 @@ else:
     st.markdown(f"### 🎸 Upcoming Shows ({len(filtered_df)} total)")
     st.dataframe(filtered_df, use_container_width=True)
 
+# Optional daily refresh (24h)
 from streamlit_autorefresh import st_autorefresh
-
-# Refresh once every 24 hours
 st_autorefresh(interval=24 * 60 * 60 * 1000, key="daily_refresh")
-
