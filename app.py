@@ -2,7 +2,7 @@ import streamlit as st
 import pandas as pd
 from datetime import datetime, timezone
 from fetch_shows import update_all, get_events, purge_non_july_events, init_db
-
+from crawl_agemdaconcertmetal import crawl_concertsmetal  # make sure this file is in the same folder
 # --- Ensure database exists ---
 init_db()
 purge_non_july_events()
@@ -29,6 +29,7 @@ with col1:
             n_tm = 0
 
         try:
+            from crawl_agemdaconcertmetal import crawl_concertsmetal  # make sure this file is in the same folder
             n_cm = crawl_concertsmetal()      # your Concerts-Metal crawler
         except Exception as exc:
             st.error(f"Concerts-Metal fetch failed: {exc}")
