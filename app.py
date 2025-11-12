@@ -10,25 +10,71 @@ purge_non_july_events()
 st.set_page_config(page_title="USA Band Tracker", layout="wide")
 st.title("🎸 USA Road Trip Gig Tracker")
 
-# --- Fetch new events ---
-if st.button("🔄 Fetch latest shows"):
-    n = update_all()
-    purge_non_july_events()
-    st.success(
-        f"✅ Added {n} new shows! "
-        f"(Last updated {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M UTC')})"
-    )
-from crawl_agemdaconcertmetal import crawl_concertsmetal  # make sure this file is in the same folder
+# --- Unified Fetch + Debug sidebar ---
 
-# --- Fetch from Concerts-Metal ---
-if st.button("🤘 Fetch Concerts-Metal (July only)"):
-    st.info("Fetching shows from Concerts-Metal... please wait ⏳")
-    n = crawl_concertsmetal()  # runs your async-safe wrapper
-    purge_non_july_events()  # keep only July events
-    st.success(
-        f"✅ Added {n} new Concerts-Metal shows! "
-        f"(Last updated {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M UTC')})"
-    )
+# Make sure crawl_concertsmetal is imported earlier in the file:
+# from crawl_agemdaconcertmetal import crawl_concertsmetal
+
+# Main fetch area (single button)
+st.subheader("🎸 Fetch New Shows")
+col1, col2 = st.columns([3, 1])
+
+with col1:
+    if st.button("🌍 Fetch ALL Sources"):
+        st.info("Fetching shows from all sources... please wait ⏳")
+        try:
+            n_tm = update_all()                # your existing Ticketmaster / main source
+        except Exception as exc:
+            st.error(f"Ticketmaster fetch failed: {exc}")
+            n_tm = 0
+
+        try:
+            n_cm = crawl_concertsmetal()      # your Concerts-Metal crawler
+        except Exception as exc:
+            st.error(f"Concerts-Metal fetch failed: {exc}")
+            n_cm = 0
+
+        # Keep only July events after both fetches (your existing helper)
+        try:
+            purge_non_july_events()
+        except Exception as exc:
+            st.warning(f"Warning while purging non-July events: {exc}")
+
+        total = (n_tm or 0) + (n_cm or 0)
+        st.success(
+            f"✅ Added {total} new shows! "
+            f"(Ticketmaster: {n_tm}, Concerts-Metal: {n_cm})\n\n"
+            f"(Last updated {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M UTC')})"
+        )
+
+with col2:
+    st.caption("Use sidebar → Debug to test individual sources")
+
+# Sidebar: toggleable debug buttons (default hidden)
+st.sidebar.title("⚙️ Developer / Debug Tools")
+debug_mode = st.sidebar.checkbox("Show Debug Fetch Buttons", value=False)
+
+if debug_mode:
+    st.sidebar.write("🧪 Individual fetch tests")
+
+    if st.sidebar.button("🔄 Fetch Ticketmaster"):
+        st.info("Fetching Ticketmaster shows...")
+        try:
+            n = update_all()
+            purge_non_july_events()
+            st.success(f"✅ Added {n} new Ticketmaster shows.")
+        except Exception as exc:
+            st.error(f"Ticketmaster fetch failed: {exc}")
+
+    if st.sidebar.button("🤘 Fetch Concerts-Metal (July only)"):
+        st.info("Fetching Concerts-Metal shows...")
+        try:
+            n = crawl_concertsmetal()
+            purge_non_july_events()
+            st.success(f"✅ Added {n} new Concerts-Metal shows.")
+        except Exception as exc:
+            st.error(f"Concerts-Metal fetch failed: {exc}")
+
 
 
 # --- Load and display data ---
