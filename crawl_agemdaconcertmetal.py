@@ -16,7 +16,7 @@ BASE_URL = "https://www.concerts-metal.com"
 STATES = ["CA", "AZ", "UT", "CO", "WY", "MT", "WA"]
 TIMEOUT = 10
 YEAR_FILTER = "2026"
-TEST_MODE = True
+TEST_MODE = False
 RETRY_LIMIT = 2
 THROTTLE_DELAY = 1.0
 # ----------------
