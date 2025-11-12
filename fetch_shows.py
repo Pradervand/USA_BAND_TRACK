@@ -83,151 +83,69 @@ def save_event(e):
 # ─────────────────────────── API CALL ────────────────────────────
 
 def fetch_ticketmaster():
-    """Fetch shows from Ticketmaster with pagination and genre capture."""
+    """Fetch all music events once per state, then locally filter by subgenres."""
     new_events = 0
     base_url = "https://app.ticketmaster.com/discovery/v2/events.json"
 
-    GENRE_IDS = [
-        "KnvZfZ7vAvt",  # Metal
-        "KnvZfZ7vA6t",  # Punk
-        "KnvZfZ7vAeA",  # Rock
-        "KnvZfZ7vAvF",  # Electronic
-    ]
-
     for st in STATES:
-        # --- GENRE ID SEARCH ---
-        for gid in GENRE_IDS:
-            page = 0
-            while True:
-                params = {
-                    "apikey": TM_API_KEY,
-                    "classificationName": "music",
-                    "genreId": gid,
-                    "stateCode": st,
-                    "size": 100,
-                    "page": page,
-                    "startDateTime": START_DATE,
-                    "endDateTime": END_DATE,
-                    "countryCode": "US",
-                }
-                r = requests.get(base_url, params=params, timeout=20)
-                if r.status_code != 200:
-                    print(f"⚠️ {r.status_code} for {st}/{gid}")
-                    break
+        params = {
+            "apikey": TM_API_KEY,
+            "classificationName": "music",
+            "stateCode": st,
+            "startDateTime": START_DATE,
+            "endDateTime": END_DATE,
+            "size": 200,
+        }
 
-                data = r.json()
-                events = data.get("_embedded", {}).get("events", [])
-                if not events:
-                    break
+        try:
+            r = requests.get(base_url, params=params, timeout=15)
+            if r.status_code != 200:
+                print(f"⚠️ Error {r.status_code} for {st}")
+                continue
 
-                for ev in events:
-                    name = ev.get("name", "")
-                    venues = ev.get("_embedded", {}).get("venues", [{}])
-                    venue = venues[0].get("name", "Unknown Venue")
-                    city = venues[0].get("city", {}).get("name", "Unknown")
-                    state = venues[0].get("state", {}).get("stateCode", st)
-                    date = ev.get("dates", {}).get("start", {}).get("localDate", "")
-                    url = ev.get("url", "")
-                    eid = "tm_" + ev.get("id", "")
+            data = r.json()
+            events = data.get("_embedded", {}).get("events", [])
 
-                    # extract genre info
-                    genre_info = []
-                    for c in ev.get("classifications", []):
-                        for gk in ["genre", "subGenre"]:
-                            g = c.get(gk, {}).get("name")
-                            if g:
-                                genre_info.append(g)
-                    genre = ", ".join(set(genre_info)) or "Unknown"
+            for ev in events:
+                name = ev.get("name", "").lower()
+                classifications = ev.get("classifications", [])
+                genre = subgenre = ""
+                if classifications:
+                    g = classifications[0].get("genre", {}).get("name", "")
+                    sg = classifications[0].get("subGenre", {}).get("name", "")
+                    genre = g or ""
+                    subgenre = sg or ""
+                
+                # Combine name + genre text to check against your list
+                text = f"{name} {genre} {subgenre}".lower()
+                if not any(k in text for k in KEYWORDS):
+                    continue
 
-                    if not already_seen(eid):
-                        save_event({
-                            "id": eid,
-                            "artist": name,
-                            "venue": venue,
-                            "city": city,
-                            "state": state,
-                            "genre": genre,
-                            "date": date,
-                            "url": url,
-                            "source": "Ticketmaster",
-                        })
-                        new_events += 1
+                venues = ev.get("_embedded", {}).get("venues", [{}])
+                venue = venues[0].get("name", "Unknown Venue")
+                city = venues[0].get("city", {}).get("name", "Unknown")
+                state = venues[0].get("state", {}).get("stateCode", st)
+                date = ev.get("dates", {}).get("start", {}).get("localDate", "")
+                url = ev.get("url", "")
+                eid = "tm_" + ev.get("id", "")
 
-                total_pages = data.get("page", {}).get("totalPages", 1)
-                if page >= total_pages - 1:
-                    break
-                page += 1
-                time.sleep(0.2)
+                if not already_seen(eid):
+                    save_event({
+                        "id": eid,
+                        "artist": ev.get("name", ""),
+                        "venue": venue,
+                        "city": city,
+                        "state": state,
+                        "genre": f"{genre} / {subgenre}",
+                        "date": date,
+                        "url": url,
+                        "source": "Ticketmaster"
+                    })
+                    new_events += 1
 
-        # --- KEYWORD SEARCH ---
-        for kw in KEYWORDS:
-            page = 0
-            while True:
-                params = {
-                    "apikey": TM_API_KEY,
-                    "classificationName": "music",
-                    "stateCode": st,
-                    "keyword": kw,
-                    "size": 100,
-                    "page": page,
-                    "startDateTime": START_DATE,
-                    "endDateTime": END_DATE,
-                    "countryCode": "US",
-                }
-                r = requests.get(base_url, params=params, timeout=20)
-                if r.status_code != 200:
-                    print(f"⚠️ Error {r.status_code} for keyword {kw} in {st}")
-                    break
+        except Exception as e:
+            print(f"❌ Exception fetching {st}: {e}")
 
-                data = r.json()
-                events = data.get("_embedded", {}).get("events", [])
-                if not events:
-                    break
-
-                for ev in events:
-                    name = ev.get("name", "")
-                    text = name.lower()
-                    if not any(k in text for k in KEYWORDS):
-                        continue
-
-                    venues = ev.get("_embedded", {}).get("venues", [{}])
-                    venue = venues[0].get("name", "Unknown Venue")
-                    city = venues[0].get("city", {}).get("name", "Unknown")
-                    state = venues[0].get("state", {}).get("stateCode", st)
-                    date = ev.get("dates", {}).get("start", {}).get("localDate", "")
-                    url = ev.get("url", "")
-                    eid = "tm_" + ev.get("id", "")
-
-                    # extract genre info
-                    genre_info = []
-                    for c in ev.get("classifications", []):
-                        for gk in ["genre", "subGenre"]:
-                            g = c.get(gk, {}).get("name")
-                            if g:
-                                genre_info.append(g)
-                    genre = ", ".join(set(genre_info)) or "Unknown"
-
-                    if not already_seen(eid):
-                        save_event({
-                            "id": eid,
-                            "artist": name,
-                            "venue": venue,
-                            "city": city,
-                            "state": state,
-                            "genre": genre,
-                            "date": date,
-                            "url": url,
-                            "source": "Ticketmaster",
-                        })
-                        new_events += 1
-
-                total_pages = data.get("page", {}).get("totalPages", 1)
-                if page >= total_pages - 1:
-                    break
-                page += 1
-                time.sleep(0.3)
-
-    print(f"✅ Added {new_events} new Ticketmaster events.")
     return new_events
 
 # ─────────────────────────── RETRIEVAL ────────────────────────────
