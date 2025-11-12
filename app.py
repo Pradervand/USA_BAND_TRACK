@@ -13,7 +13,8 @@ data = get_events()
 if not data:
     st.info("No events stored yet — click 'Fetch latest shows' above.")
 else:
-    df = pd.DataFrame(data, columns=["Artist", "Venue", "City", "State", "Genre", "Date", "URL", "Source"])
+    df = pd.DataFrame(data, columns=["Artist", "Venue", "City", "State", "Date", "URL", "Source"])
+
     df["URL"] = df["URL"].apply(lambda x: f"[Link]({x})")
 
     def color_by_genre(val):
