@@ -18,6 +18,18 @@ if st.button("🔄 Fetch latest shows"):
         f"✅ Added {n} new shows! "
         f"(Last updated {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M UTC')})"
     )
+from crawl_agemdaconcertmetal import crawl_concertsmetal  # make sure this file is in the same folder
+
+# --- Fetch from Concerts-Metal ---
+if st.button("🤘 Fetch Concerts-Metal (July only)"):
+    st.info("Fetching shows from Concerts-Metal... please wait ⏳")
+    n = crawl_concertsmetal()  # runs your async-safe wrapper
+    purge_non_july_events()  # keep only July events
+    st.success(
+        f"✅ Added {n} new Concerts-Metal shows! "
+        f"(Last updated {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M UTC')})"
+    )
+
 
 # --- Load and display data ---
 data = get_events()
