@@ -6,26 +6,25 @@ from pydrive2.auth import GoogleAuth
 from pydrive2.drive import GoogleDrive
 
 def init_drive():
-    """Initialize Google Drive client using a Google service account."""
-    creds_dict = st.secrets["GOOGLE_DRIVE_SERVICE_ACCOUNT"]
+    """Initialize Google Drive using Streamlit secret with service account."""
+    creds = st.secrets["GOOGLE_DRIVE_SERVICE_ACCOUNT"]
 
-    # Write credentials to a temp file
+    # Save credentials to a temp JSON file
     creds_path = "/tmp/service_account.json"
     with open(creds_path, "w") as f:
-        json.dump(creds_dict, f)
+        json.dump(creds, f)
 
-    # Configure PyDrive2 for service account auth
+    # Configure PyDrive2 to use service account
     gauth = GoogleAuth()
-    gauth.settings = {
+    gauth.LoadSettings({
         "client_config_backend": "service",
         "service_config": {
-            "client_json_file_path": creds_path,
-        },
-    }
+            "client_json_file_path": creds_path
+        }
+    })
 
     gauth.ServiceAuth()
-    drive = GoogleDrive(gauth)
-    return drive
+    return GoogleDrive(gauth)
 
 
 def upload_db(drive, folder_id=""):
@@ -34,7 +33,7 @@ def upload_db(drive, folder_id=""):
     if not os.path.exists(local_path):
         return False
 
-    # Delete previous DB versions in folder
+    # Remove any previous versions
     for file in drive.ListFile({'q': f"'{folder_id}' in parents and title='events.db' and trashed=false"}).GetList():
         file.Delete()
 
