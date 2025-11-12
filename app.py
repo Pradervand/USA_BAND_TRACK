@@ -1,6 +1,6 @@
 import streamlit as st
 import pandas as pd
-from fetch_shows import update_all, get_events
+from fetch_shows import update_all, get_events, purge_non_july_events 
 from datetime import datetime
 
 st.set_page_config(page_title="USA Band Tracker", layout="wide")
