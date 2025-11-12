@@ -5,8 +5,7 @@ import datetime
 import time
 
 TM_API_KEY = os.getenv("TM_API_KEY", "")
-# --- Persistent database path ---
-
+DB = "events.db"
 
 STATES = ["CA", "AZ", "UT", "CO", "WY", "MT", "WA"]
 KEYWORDS = [
