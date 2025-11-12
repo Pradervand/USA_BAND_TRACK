@@ -1,85 +1,183 @@
 import streamlit as st
 import pandas as pd
 from datetime import datetime, timezone
-
-# Local imports
-from fetch_shows import (
-    update_all, get_events, purge_non_july_events, init_db
-)
+from fetch_shows import update_all, get_events, purge_non_july_events, init_db
 from crawl_agemdaconcertmetal import crawl_concertsmetal
-from fetch_seatgeek import fetch_seatgeek
+from fetch_seatgeek import fetch_seatgeek  # ✅ new module
 
-# --- SETUP ---
-st.set_page_config(page_title="USA Band Tracker", layout="wide")
+# --- Ensure database exists ---
 init_db()
+purge_non_july_events()
 
-# --- SIDEBAR ---
-st.sidebar.header("Data Sources")
-use_crawler = st.sidebar.checkbox("Use ConcertsMetal.com Crawler", True)
-use_seatgeek = st.sidebar.checkbox("Use SeatGeek API", True)
+st.set_page_config(page_title="USA Band Tracker", layout="wide")
+st.title("🎸 USA Road Trip Gig Tracker")
 
-st.sidebar.header("Date Filters")
-start_date = st.sidebar.date_input("Start Date", datetime(2026, 7, 1))
-end_date = st.sidebar.date_input("End Date", datetime(2026, 7, 31))
+# --- Unified Fetch + Debug sidebar ---
+st.subheader("🎸 Fetch New Shows")
+col1, col2 = st.columns([3, 1])
 
-if st.sidebar.button("Purge Non-July Events"):
-    purge_non_july_events()
-    st.success("🧹 Old events removed.")
-
-# --- MAIN UI ---
-st.title("🎸 USA Band Tracker — Live Show Aggregator")
-
-if st.button("🚀 Update All Data"):
-    with st.spinner("Fetching and updating events..."):
+with col1:
+    if st.button("🌍 Fetch ALL Sources"):
+        st.info("Fetching shows from all sources... please wait ⏳")
         total = 0
 
-        if use_crawler:
-            total += crawl_concertsmetal()
+        try:
+            n_tm = update_all()
+        except Exception as exc:
+            st.error(f"Ticketmaster fetch failed: {exc}")
+            n_tm = 0
 
-        if use_seatgeek:
-            total += fetch_seatgeek(test_mode=False)
+        try:
+            n_cm = crawl_concertsmetal()
+        except Exception as exc:
+            st.error(f"Concerts-Metal fetch failed: {exc}")
+            n_cm = 0
 
-        update_all()
-    st.success(f"✅ Update complete. Added {total} new shows.")
+        try:
+            n_sg = fetch_seatgeek(test_mode=False)  # ✅ SeatGeek integration
+        except Exception as exc:
+            st.error(f"SeatGeek fetch failed: {exc}")
+            n_sg = 0
 
-# --- DISPLAY EVENTS ---
-st.subheader("🎵 Current Shows in Database")
+        try:
+            purge_non_july_events()
+        except Exception as exc:
+            st.warning(f"Warning while purging non-July events: {exc}")
 
-events = pd.DataFrame(get_events())
+        total = (n_tm or 0) + (n_cm or 0) + (n_sg or 0)
+        st.success(
+            f"✅ Added {total} new shows!\n\n"
+            f"(Ticketmaster: {n_tm}, Concerts-Metal: {n_cm}, SeatGeek: {n_sg})\n"
+            f"(Last updated {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M UTC')})"
+        )
 
-if not events.empty:
-    events["date"] = pd.to_datetime(events["date"], errors="coerce")
-    events = events.sort_values(by="date")
+with col2:
+    st.caption("Use sidebar → Debug to test individual sources")
 
-    # Quick filters (we’ll expand this next)
-    genre_filter = st.selectbox(
-        "Filter by Genre", ["All"] + sorted(events["genre"].dropna().unique().tolist())
-    )
-    state_filter = st.selectbox(
-        "Filter by State", ["All"] + sorted(events["state"].dropna().unique().tolist())
-    )
+# Sidebar: toggleable debug buttons
+st.sidebar.title("⚙️ Developer / Debug Tools")
+debug_mode = st.sidebar.checkbox("Show Debug Fetch Buttons", value=False)
 
-    if genre_filter != "All":
-        events = events[events["genre"] == genre_filter]
-    if state_filter != "All":
-        events = events[events["state"] == state_filter]
+if debug_mode:
+    st.sidebar.write("🧪 Individual fetch tests")
 
-    st.markdown(f"### {len(events)} Shows Found")
+    if st.sidebar.button("🔄 Fetch Ticketmaster"):
+        st.info("Fetching Ticketmaster shows...")
+        try:
+            n = update_all()
+            purge_non_july_events()
+            st.success(f"✅ Added {n} new Ticketmaster shows.")
+        except Exception as exc:
+            st.error(f"Ticketmaster fetch failed: {exc}")
 
-    for _, row in events.iterrows():
-        with st.container():
-            col1, col2 = st.columns([1, 3])
-            with col1:
-                if pd.notna(row["image"]):
-                    st.image(row["image"], use_container_width=True)
-                else:
-                    st.image("https://via.placeholder.com/200x150.png?text=No+Image")
-            with col2:
-                st.markdown(f"### {row['artist']}")
-                st.markdown(f"**Genre:** {row['genre']}")
-                st.markdown(f"**Venue:** {row['venue']}, {row['city']}, {row['state']}")
-                st.markdown(f"**Date:** {row['date'].strftime('%Y-%m-%d')}")
-                st.markdown(f"[🎟 Open Link]({row['url']})")
+    if st.sidebar.button("🤘 Fetch Concerts-Metal (July only)"):
+        st.info("Fetching Concerts-Metal shows...")
+        try:
+            n = crawl_concertsmetal()
+            purge_non_july_events()
+            st.success(f"✅ Added {n} new Concerts-Metal shows.")
+        except Exception as exc:
+            st.error(f"Concerts-Metal fetch failed: {exc}")
 
+    if st.sidebar.button("🎟️ Fetch SeatGeek (July only)"):
+        st.info("Fetching SeatGeek shows...")
+        try:
+            n = fetch_seatgeek(test_mode=False)
+            purge_non_july_events()
+            st.success(f"✅ Added {n} new SeatGeek shows.")
+        except Exception as exc:
+            st.error(f"SeatGeek fetch failed: {exc}")
+
+# --- Load and display data ---
+data = get_events()
+
+if not data:
+    st.info("No events stored yet — click 'Fetch latest shows' above.")
 else:
-    st.warning("No events found. Try running an update first.")
+    df = pd.DataFrame(
+        data,
+        columns=["Artist", "Genre", "Venue", "City", "State", "Date", "URL", "Source", "Image"]
+    )
+
+    df["Date"] = pd.to_datetime(df["Date"], errors="coerce")
+    df = df[df["Date"].dt.month == 7]
+    df["URL_raw"] = df["URL"]
+    df["URL"] = df["URL"].apply(lambda x: f"[Link]({x})" if x else "")
+
+    # --- Filters ---
+    col1, col2 = st.columns(2)
+    with col1:
+        state_filter = st.multiselect("Filter by State", sorted(df["State"].unique()))
+    with col2:
+        genre_filter = st.multiselect(
+            "Filter by Genre (OR)",
+            sorted(set(g.strip() for g in ", ".join(df["Genre"].dropna()).split("/") if g))
+        )
+
+    filtered_df = df.copy()
+    if state_filter:
+        filtered_df = filtered_df[filtered_df["State"].isin(state_filter)]
+    if genre_filter:
+        filtered_df = filtered_df[filtered_df["Genre"].apply(
+            lambda x: any(g.lower() in x.lower() for g in genre_filter)
+        )]
+
+    # --- Color helper ---
+    def color_by_genre(val):
+        if not val:
+            return ""
+        val = str(val).lower()
+        if "metal" in val:
+            return "background-color: #444; color: white;"
+        if "punk" in val:
+            return "background-color: #c00; color: white;"
+        if "goth" in val or "dark" in val or "wave" in val:
+            return "background-color: #505050; color: white;"
+        if "industrial" in val or "ebm" in val or "electro" in val:
+            return "background-color: #333366; color: white;"
+        return ""
+
+    show_table = st.toggle("📊 Show table view", value=False)
+    if not show_table:
+        st.markdown("### 📅 Upcoming Shows (Card View)")
+        if filtered_df.empty:
+            st.warning("No shows match your filters.")
+        else:
+            for _, row in filtered_df.iterrows():
+                image_url = row.get("Image", None)
+                url = row.get("URL_raw", "")
+                st.markdown(f"""
+                <div style="
+                    background: #1e1e1e;
+                    border-radius: 12px;
+                    padding: 1rem;
+                    margin-bottom: 0.8rem;
+                    box-shadow: 0 0 10px rgba(0,0,0,0.3);
+                    display: flex;
+                    align-items: center;
+                ">
+                    {'<img src="'+image_url+'" style="width:130px;height:auto;border-radius:8px;margin-right:1rem;object-fit:cover;">' if image_url else ''}
+                    <div style="flex:1;line-height:1.6;">
+                        <b style="font-size:1.05rem;">🎤 {row['Artist']}</b><br>
+                        🎶 <i>{row['Genre']}</i><br>
+                        📍 {row['Venue']} — {row['City']}, {row['State']}<br>
+                        🗓️ {row['Date'].strftime('%Y-%m-%d') if pd.notnull(row['Date']) else 'Unknown'}<br>
+                        <a href="{url}" target="_blank" rel="noopener noreferrer"
+                           style="display:inline-block;margin-top:6px;padding:6px 10px;
+                           border-radius:8px;background:#2b6cb0;color:white;
+                           text-decoration:none;font-weight:600;">
+                           🎟️ Tickets / Info
+                        </a>
+                    </div>
+                </div>
+                """, unsafe_allow_html=True)
+    else:
+        st.markdown("### 📊 Table View")
+        if filtered_df.empty:
+            st.warning("No shows match your filters.")
+        else:
+            st.dataframe(
+                filtered_df.style.map(color_by_genre, subset=["Genre"]),
+                use_container_width=True,
+                hide_index=True
+            )
