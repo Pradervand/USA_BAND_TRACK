@@ -1,120 +1,99 @@
+import os
 import streamlit as st
 import pandas as pd
 from datetime import datetime, timezone
 from fetch_shows import update_all, get_events, purge_non_july_events, init_db
-from crawl_agemdaconcertmetal import crawl_concertsmetal  # make sure this file is in the same folder
+from crawl_agemdaconcertmetal import crawl_concertsmetal
 from drive_sync import init_drive, upload_db, download_db
 
 
-# Initialize Google Drive and sync DB
-drive_service = init_drive()
-folder_id = st.secrets["GOOGLE_DRIVE_FOLDER_ID"]
-os.makedirs("data", exist_ok=True)
-
-download_db(drive_service, folder_id)
-# ... run your crawler, update DB ...
-upload_db(drive_service, folder_id)
-init_db()  # your existing DB init
-
-# Upload DB after fetch
-if st.button("🌍 Fetch ALL Sources"):
-    ...
-    upload_db(drive, folder_id=FOLDER_ID)
-# --- Ensure database exists ---
-init_db()
-purge_non_july_events()
-
+# --- Streamlit setup ---
 st.set_page_config(page_title="USA Band Tracker", layout="wide")
 st.title("🎸 USA Road Trip Gig Tracker")
 
-# --- Unified Fetch + Debug sidebar ---
+# --- Google Drive setup ---
+st.info("🔄 Initializing Drive connection...")
+try:
+    drive_service = init_drive()
+    folder_id = st.secrets["GOOGLE_DRIVE_FOLDER_ID"]
+    os.makedirs("data", exist_ok=True)
 
-col1, col2 = st.columns([3, 1])
+    # Download DB from Drive (if available)
+    if download_db(drive_service, folder_id):
+        st.success("✅ Synced latest database from Google Drive.")
+    else:
+        st.warning("⚠️ No remote DB found on Drive — starting fresh.")
+except Exception as e:
+    st.error(f"❌ Drive initialization failed: {e}")
+    drive_service = None
+    folder_id = None
 
-with col1:
-    if st.button("🌍 Fetch ALL Sources"):
-        st.info("Fetching shows from all sources... please wait ⏳")
+# --- Ensure database exists locally ---
+init_db()
+purge_non_july_events()
+
+
+# --- Fetch all sources ---
+if st.button("🌍 Fetch ALL Sources"):
+    st.info("Fetching shows from all sources... please wait ⏳")
+
+    total_tm = total_cm = 0
+
+    try:
+        total_tm = update_all()
+    except Exception as exc:
+        st.error(f"Ticketmaster fetch failed: {exc}")
+
+    try:
+        total_cm = crawl_concertsmetal()
+    except Exception as exc:
+        st.error(f"Concerts-Metal fetch failed: {exc}")
+
+    try:
+        purge_non_july_events()
+    except Exception as exc:
+        st.warning(f"Warning while purging non-July events: {exc}")
+
+    total = (total_tm or 0) + (total_cm or 0)
+    st.success(
+        f"✅ Added {total} new shows! "
+        f"(Ticketmaster: {total_tm}, Concerts-Metal: {total_cm})\n\n"
+        f"(Last updated {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M UTC')})"
+    )
+
+    # Upload updated DB to Google Drive
+    if drive_service and folder_id:
         try:
-            n_tm = update_all()
-        except Exception as exc:
-            st.error(f"Ticketmaster fetch failed: {exc}")
-            n_tm = 0
+            upload_db(drive_service, folder_id)
+            st.success("☁️ Database synced to Google Drive.")
+        except Exception as e:
+            st.warning(f"Drive upload failed: {e}")
 
-        try:
-            n_cm = crawl_concertsmetal()
-        except Exception as exc:
-            st.error(f"Concerts-Metal fetch failed: {exc}")
-            n_cm = 0
-
-        try:
-            purge_non_july_events()
-        except Exception as exc:
-            st.warning(f"Warning while purging non-July events: {exc}")
-
-        total = (n_tm or 0) + (n_cm or 0)
-        st.success(
-            f"✅ Added {total} new shows! "
-            f"(Ticketmaster: {n_tm}, Concerts-Metal: {n_cm})\n\n"
-            f"(Last updated {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M UTC')})"
-        )
-
-with col2:
-    st.caption("Use sidebar → Debug to test individual sources")
-
-# Sidebar: toggleable debug buttons (default hidden)
-st.sidebar.title("⚙️ Developer / Debug Tools")
-debug_mode = st.sidebar.checkbox("Show Debug Fetch Buttons", value=False)
-
-if debug_mode:
-    st.sidebar.write("🧪 Individual fetch tests")
-
-    if st.sidebar.button("🔄 Fetch Ticketmaster"):
-        st.info("Fetching Ticketmaster shows...")
-        try:
-            n = update_all()
-            purge_non_july_events()
-            st.success(f"✅ Added {n} new Ticketmaster shows.")
-        except Exception as exc:
-            st.error(f"Ticketmaster fetch failed: {exc}")
-
-    if st.sidebar.button("🤘 Fetch Concerts-Metal (July only)"):
-        st.info("Fetching Concerts-Metal shows...")
-        try:
-            n = crawl_concertsmetal()
-            purge_non_july_events()
-            st.success(f"✅ Added {n} new Concerts-Metal shows.")
-        except Exception as exc:
-            st.error(f"Concerts-Metal fetch failed: {exc}")
 
 # --- Load and display data ---
 data = get_events()
 
 if not data:
-    st.info("No events stored yet — click 'Fetch latest shows' above.")
+    st.info("No events stored yet — click 'Fetch ALL Sources' above.")
 else:
     df = pd.DataFrame(
         data,
-        columns=["Artist", "Genre", "Venue", "City", "State", "Date", "URL", "Source", "Image"]
+        columns=["Artist", "Genre", "Venue", "City", "State", "Date", "URL", "Source", "Image"],
     )
 
-    # --- Format & clean ---
     df["Date"] = pd.to_datetime(df["Date"], errors="coerce")
-    df = df[df["Date"].dt.month == 7]  # Only July shows
-
-    # ✅ Keep raw URL for cards, formatted one for table
+    df = df[df["Date"].dt.month == 7]
     df["URL_raw"] = df["URL"]
     df["URL"] = df["URL"].apply(lambda x: f"[Link]({x})" if x else "")
 
     # --- Filters ---
     col1, col2 = st.columns(2)
-
     with col1:
         state_filter = st.multiselect(
             "Filter by State",
             options=sorted(df["State"].unique()),
             key="state_filter",
         )
-
     with col2:
         genre_filter = st.multiselect(
             "Filter by Genre (OR)",
@@ -126,11 +105,11 @@ else:
     if state_filter:
         filtered_df = filtered_df[filtered_df["State"].isin(state_filter)]
     if genre_filter:
-        filtered_df = filtered_df[filtered_df["Genre"].apply(
-            lambda x: any(g.lower() in x.lower() for g in genre_filter)
-        )]
+        filtered_df = filtered_df[
+            filtered_df["Genre"].apply(lambda x: any(g.lower() in x.lower() for g in genre_filter))
+        ]
 
-    # --- Color helper for table view ---
+    # --- Table color helper ---
     def color_by_genre(val):
         if not val:
             return ""
@@ -145,19 +124,18 @@ else:
             return "background-color: #333366; color: white;"
         return ""
 
-    # --- Toggle for Table view ---
+    # --- View toggle ---
     show_table = st.toggle("📊 Show table view", value=False, key="view_toggle")
 
-    # --- CARD VIEW (default) ---
+    # --- CARD VIEW ---
     if not show_table:
         st.markdown("### 📅 Upcoming Shows (Card View)")
         if filtered_df.empty:
             st.warning("No shows match your filters.")
         else:
             for _, row in filtered_df.iterrows():
-                image_url = row.get("Image", None)
-                url = row.get("URL_raw", "")  # ✅ Use raw URL for cards
-
+                image_url = row.get("Image", "")
+                url = row.get("URL_raw", "")
                 st.markdown(f"""
                 <div style="
                     background: #1e1e1e;
@@ -183,8 +161,7 @@ else:
                     </div>
                 </div>
                 """, unsafe_allow_html=True)
-
-    # --- TABLE VIEW (optional) ---
+    # --- TABLE VIEW ---
     else:
         st.markdown("### 📊 Table View")
         if filtered_df.empty:
@@ -193,5 +170,5 @@ else:
             st.dataframe(
                 filtered_df.style.map(color_by_genre, subset=["Genre"]),
                 use_container_width=True,
-                hide_index=True
+                hide_index=True,
             )
