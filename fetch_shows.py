@@ -67,38 +67,47 @@ def save_event(e):
     conn.commit()
     conn.close()
 
+import math
+import time
+
 def fetch_ticketmaster():
-    """Fetch metal/punk/goth shows from Ticketmaster for 2026 using genre filters."""
+    """Fetch all metal/punk/goth/etc shows from Ticketmaster with full pagination."""
     new_events = 0
     base_url = "https://app.ticketmaster.com/discovery/v2/events.json"
 
     GENRE_IDS = [
         "KnvZfZ7vAvt",  # Metal
         "KnvZfZ7vA6t",  # Punk
-        "KnvZfZ7vAeA",  # Rock (includes Goth, Industrial)
+        "KnvZfZ7vAeA",  # Rock
         "KnvZfZ7vAvF",  # Electronic
     ]
 
     for st in STATES:
+        # 1️⃣ Search by GENRE IDs
         for gid in GENRE_IDS:
-            params = {
-                "apikey": TM_API_KEY,
-                "classificationName": "music",
-                "genreId": gid,
-                "stateCode": st,
-                "size": 100,
-                "startDateTime": START_DATE,
-                "endDateTime": END_DATE,
-                "countryCode": "US",
-            }
-
-            try:
-                r = requests.get(base_url, params=params, timeout=15)
+            page = 0
+            while True:
+                params = {
+                    "apikey": TM_API_KEY,
+                    "classificationName": "music",
+                    "genreId": gid,
+                    "stateCode": st,
+                    "size": 100,
+                    "page": page,
+                    "startDateTime": START_DATE,
+                    "endDateTime": END_DATE,
+                    "countryCode": "US",
+                }
+                r = requests.get(base_url, params=params, timeout=20)
                 if r.status_code != 200:
-                    print(f"⚠️ Error {r.status_code} for {st} / genre {gid}")
-                    continue
+                    print(f"⚠️ Error {r.status_code} for {st}/{gid}")
+                    break
 
-                events = r.json().get("_embedded", {}).get("events", [])
+                data = r.json()
+                events = data.get("_embedded", {}).get("events", [])
+                if not events:
+                    break
+
                 for ev in events:
                     name = ev.get("name", "")
                     venues = ev.get("_embedded", {}).get("venues", [{}])
@@ -122,9 +131,74 @@ def fetch_ticketmaster():
                         })
                         new_events += 1
 
-            except Exception as e:
-                print(f"❌ Exception fetching {st} / genre {gid}: {e}")
+                total_pages = data.get("page", {}).get("totalPages", 1)
+                page += 1
+                if page >= total_pages:
+                    break
 
+                time.sleep(0.2)
+
+        # 2️⃣ Keyword search fallback for niche genres (black metal, doom, etc.)
+        for kw in KEYWORDS:
+            page = 0
+            while True:
+                params = {
+                    "apikey": TM_API_KEY,
+                    "classificationName": "music",
+                    "stateCode": st,
+                    "keyword": kw,
+                    "size": 100,
+                    "page": page,
+                    "startDateTime": START_DATE,
+                    "endDateTime": END_DATE,
+                    "countryCode": "US",
+                }
+                r = requests.get(base_url, params=params, timeout=20)
+                if r.status_code != 200:
+                    print(f"⚠️ Error {r.status_code} for keyword {kw} in {st}")
+                    break
+
+                data = r.json()
+                events = data.get("_embedded", {}).get("events", [])
+                if not events:
+                    break
+
+                for ev in events:
+                    name = ev.get("name", "")
+                    # Double-check match
+                    text = name.lower()
+                    if not any(k in text for k in KEYWORDS):
+                        continue
+
+                    venues = ev.get("_embedded", {}).get("venues", [{}])
+                    venue = venues[0].get("name", "Unknown Venue")
+                    city = venues[0].get("city", {}).get("name", "Unknown")
+                    state = venues[0].get("state", {}).get("stateCode", st)
+                    date = ev.get("dates", {}).get("start", {}).get("localDate", "")
+                    url = ev.get("url", "")
+                    eid = "tm_" + ev.get("id", "")
+
+                    if not already_seen(eid):
+                        save_event({
+                            "id": eid,
+                            "artist": name,
+                            "venue": venue,
+                            "city": city,
+                            "state": state,
+                            "date": date,
+                            "url": url,
+                            "source": "Ticketmaster"
+                        })
+                        new_events += 1
+
+                total_pages = data.get("page", {}).get("totalPages", 1)
+                page += 1
+                if page >= total_pages:
+                    break
+
+                time.sleep(0.3)
+
+    print(f"✅ Added {new_events} new Ticketmaster events.")
     return new_events
 
 
