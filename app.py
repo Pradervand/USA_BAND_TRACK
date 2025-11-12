@@ -13,7 +13,9 @@ st.title("🎸 USA Band Tracker — Metal / Punk / Goth / Industrial")
 if st.button("🔄 Fetch latest shows"):
     n = update_all()
     purge_non_july_events()
+    from datetime import datetime, timezone
     st.success(f"✅ Added {n} new shows! (Last updated {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M UTC')})")
+
 
 
 # --- Load and display data ---
