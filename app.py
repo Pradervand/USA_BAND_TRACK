@@ -78,26 +78,28 @@ else:
     # --- Toggle for Table view ---
     show_table = st.toggle("📊 Show table view", value=False, key="view_toggle")
 
-    # --- CARD VIEW (default) ---
-    if not show_table:
-        st.markdown("### 📅 Upcoming Shows (Card View)")
-        if filtered_df.empty:
-            st.warning("No shows match your filters.")
-        else:
+        # --- CARD VIEW (default) ---
+        if not show_table:
+            st.markdown("### 📅 Upcoming Shows (Card View)")
             for _, row in filtered_df.iterrows():
+                url = row['URL']
                 st.markdown(f"""
                 <div style="
                     background: #1e1e1e;
                     border-radius: 12px;
                     padding: 1rem;
-                    margin-bottom: 0.7rem;
+                    margin-bottom: 0.8rem;
                     box-shadow: 0 0 10px rgba(0,0,0,0.3);
                 ">
                     <b style="font-size:1.1rem;">🎤 {row['Artist']}</b><br>
                     🎶 <i>{row['Genre']}</i><br>
                     📍 {row['Venue']} — {row['City']}, {row['State']}<br>
                     🗓️ {row['Date'].strftime('%Y-%m-%d') if pd.notnull(row['Date']) else 'Unknown'}<br>
-                    🔗 {row['URL']}
+                    🔗 <a href="{url}" target="_blank" style="
+                        color:#58a6ff;
+                        text-decoration:none;
+                        font-weight:600;
+                    ">Buy / More Info →</a>
                 </div>
                 """, unsafe_allow_html=True)
 
