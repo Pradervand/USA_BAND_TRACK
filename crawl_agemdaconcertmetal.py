@@ -11,6 +11,7 @@ from datetime import datetime
 import fetch_shows
 import pandas as pd
 import nest_asyncio
+import os
 
 # ---- CONFIG ----
 BASE_URL = "https://www.concerts-metal.com"
