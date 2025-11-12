@@ -1,20 +1,25 @@
 # drive_sync.py
 import streamlit as st
 import os
-import json
+import io
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaFileUpload, MediaIoBaseDownload
-import io
 
 def init_drive():
-    creds_json = st.secrets["GOOGLE_DRIVE_SERVICE_ACCOUNT"]
-    creds_dict = json.loads(creds_json)  # <-- parse string into dict
+    """Initialize Google Drive service using Streamlit secret."""
+    # Convert nested AttrDict to a plain dict
+    creds_dict = dict(st.secrets["GOOGLE_DRIVE_SERVICE_ACCOUNT"])
+    
+    # Ensure private_key has proper newlines
+    creds_dict["private_key"] = creds_dict["private_key"].replace('\\n', '\n')
+
     creds = service_account.Credentials.from_service_account_info(
         creds_dict,
         scopes=["https://www.googleapis.com/auth/drive.file"]
     )
     return build("drive", "v3", credentials=creds)
+
 
 def upload_db(service, folder_id):
     """Upload local events.db to Google Drive (replace existing one)."""
@@ -22,11 +27,12 @@ def upload_db(service, folder_id):
     if not os.path.exists(file_name):
         return False
 
-    # Delete existing file
+    # Delete existing file with same name
     results = service.files().list(
         q=f"'{folder_id}' in parents and name='{file_name}' and trashed=false",
         fields="files(id)"
     ).execute()
+
     for f in results.get("files", []):
         service.files().delete(fileId=f["id"]).execute()
 
