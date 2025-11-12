@@ -2,13 +2,19 @@ import streamlit as st
 import pandas as pd
 from datetime import datetime, timezone
 from fetch_shows import update_all, get_events, purge_non_july_events, init_db
-from crawl_agemdaconcertmetal import crawl_concertsmetal
+from crawl_agemdaconcertmetal import crawl_concertsmetal  # make sure this file is in the same folder
+
 # --- Ensure database exists ---
 init_db()
 purge_non_july_events()
 
 st.set_page_config(page_title="USA Band Tracker", layout="wide")
 st.title("🎸 USA Road Trip Gig Tracker")
+
+# --- Unified Fetch + Debug sidebar ---
+
+col1, col2 = st.columns([3, 1])
+
 with col1:
     if st.button("🌍 Fetch ALL Sources"):
         st.info("Fetching shows from all sources... please wait ⏳")
@@ -17,41 +23,52 @@ with col1:
         except Exception as exc:
             st.error(f"Ticketmaster fetch failed: {exc}")
             n_tm = 0
+
         try:
             n_cm = crawl_concertsmetal()
         except Exception as exc:
             st.error(f"Concerts-Metal fetch failed: {exc}")
             n_cm = 0
+
         try:
             purge_non_july_events()
         except Exception as exc:
             st.warning(f"Warning while purging non-July events: {exc}")
+
         total = (n_tm or 0) + (n_cm or 0)
         st.success(
             f"✅ Added {total} new shows! "
             f"(Ticketmaster: {n_tm}, Concerts-Metal: {n_cm})\n\n"
             f"(Last updated {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M UTC')})"
         )
-# --- Fetch new events ---
-if st.button("🔄 Fetch latest shows"):
-    n = update_all()
-    purge_non_july_events()
-    st.success(
-        f"✅ Added {n} new shows! "
-        f"(Last updated {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M UTC')})"
-    )
-from crawl_agemdaconcertmetal import crawl_concertsmetal  # make sure this file is in the same folder
 
-# --- Fetch from Concerts-Metal ---
-if st.button("🤘 Fetch Concerts-Metal (July only)"):
-    st.info("Fetching shows from Concerts-Metal... please wait ⏳")
-    n = crawl_concertsmetal()  # runs your async-safe wrapper
-    purge_non_july_events()  # keep only July events
-    st.success(
-        f"✅ Added {n} new Concerts-Metal shows! "
-        f"(Last updated {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M UTC')})"
-    )
+with col2:
+    st.caption("Use sidebar → Debug to test individual sources")
 
+# Sidebar: toggleable debug buttons (default hidden)
+st.sidebar.title("⚙️ Developer / Debug Tools")
+debug_mode = st.sidebar.checkbox("Show Debug Fetch Buttons", value=False)
+
+if debug_mode:
+    st.sidebar.write("🧪 Individual fetch tests")
+
+    if st.sidebar.button("🔄 Fetch Ticketmaster"):
+        st.info("Fetching Ticketmaster shows...")
+        try:
+            n = update_all()
+            purge_non_july_events()
+            st.success(f"✅ Added {n} new Ticketmaster shows.")
+        except Exception as exc:
+            st.error(f"Ticketmaster fetch failed: {exc}")
+
+    if st.sidebar.button("🤘 Fetch Concerts-Metal (July only)"):
+        st.info("Fetching Concerts-Metal shows...")
+        try:
+            n = crawl_concertsmetal()
+            purge_non_july_events()
+            st.success(f"✅ Added {n} new Concerts-Metal shows.")
+        except Exception as exc:
+            st.error(f"Concerts-Metal fetch failed: {exc}")
 
 # --- Load and display data ---
 data = get_events()
@@ -64,10 +81,13 @@ else:
         columns=["Artist", "Genre", "Venue", "City", "State", "Date", "URL", "Source", "Image"]
     )
 
-    # Format & clean
-    df["URL"] = df["URL"].apply(lambda x: f"[Link]({x})" if x else "")
+    # --- Format & clean ---
     df["Date"] = pd.to_datetime(df["Date"], errors="coerce")
     df = df[df["Date"].dt.month == 7]  # Only July shows
+
+    # ✅ Keep raw URL for cards, formatted one for table
+    df["URL_raw"] = df["URL"]
+    df["URL"] = df["URL"].apply(lambda x: f"[Link]({x})" if x else "")
 
     # --- Filters ---
     col1, col2 = st.columns(2)
@@ -112,7 +132,6 @@ else:
     # --- Toggle for Table view ---
     show_table = st.toggle("📊 Show table view", value=False, key="view_toggle")
 
-
     # --- CARD VIEW (default) ---
     if not show_table:
         st.markdown("### 📅 Upcoming Shows (Card View)")
@@ -121,8 +140,8 @@ else:
         else:
             for _, row in filtered_df.iterrows():
                 image_url = row.get("Image", None)
-                url = row.get("URL", "")
-            
+                url = row.get("URL_raw", "")  # ✅ Use raw URL for cards
+
                 st.markdown(f"""
                 <div style="
                     background: #1e1e1e;
@@ -139,7 +158,7 @@ else:
                         🎶 <i>{row['Genre']}</i><br>
                         📍 {row['Venue']} — {row['City']}, {row['State']}<br>
                         🗓️ {row['Date'].strftime('%Y-%m-%d') if pd.notnull(row['Date']) else 'Unknown'}<br>
-                        <a href="{row['URL']}" target="_blank" rel="noopener noreferrer"
+                        <a href="{url}" target="_blank" rel="noopener noreferrer"
                            style="display:inline-block;margin-top:6px;padding:6px 10px;
                            border-radius:8px;background:#2b6cb0;color:white;
                            text-decoration:none;font-weight:600;">
@@ -148,9 +167,6 @@ else:
                     </div>
                 </div>
                 """, unsafe_allow_html=True)
-
-
-
 
     # --- TABLE VIEW (optional) ---
     else:
