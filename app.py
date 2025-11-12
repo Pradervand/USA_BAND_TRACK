@@ -8,7 +8,7 @@ init_db()
 purge_non_july_events()
 
 st.set_page_config(page_title="USA Band Tracker", layout="wide")
-st.title("🎸 USA Band Tracker — Metal / Punk / Goth / Industrial")
+st.title("🎸 USA Road Trip Gig Tracker")
 
 # --- Fetch new events ---
 if st.button("🔄 Fetch latest shows"):
@@ -27,7 +27,7 @@ if not data:
 else:
     df = pd.DataFrame(
         data,
-        columns=["Artist", "Genre", "Venue", "City", "State", "Date", "URL", "Source"]
+        columns=["Artist", "Genre", "Venue", "City", "State", "Date", "URL", "Source", "Image"]
     )
 
     # Format & clean
