@@ -8,14 +8,13 @@ from googleapiclient.http import MediaFileUpload, MediaIoBaseDownload
 import io
 
 def init_drive():
-    """Initialize Google Drive service using Streamlit secret."""
-    creds_dict = st.secrets["GOOGLE_DRIVE_SERVICE_ACCOUNT"]
+    creds_json = st.secrets["GOOGLE_DRIVE_SERVICE_ACCOUNT"]
+    creds_dict = json.loads(creds_json)  # <-- parse string into dict
     creds = service_account.Credentials.from_service_account_info(
         creds_dict,
         scopes=["https://www.googleapis.com/auth/drive.file"]
     )
     return build("drive", "v3", credentials=creds)
-
 
 def upload_db(service, folder_id):
     """Upload local events.db to Google Drive (replace existing one)."""
