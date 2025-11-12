@@ -2,33 +2,39 @@
 import streamlit as st
 import json
 import os
-from pydrive2.auth import GoogleAuth, GoogleServiceAccountAuth
+from pydrive2.auth import GoogleAuth
 from pydrive2.drive import GoogleDrive
 
 def init_drive():
-    """Initialize Google Drive client using service account JSON from Streamlit secrets."""
+    """Initialize Google Drive client using a Google service account."""
     creds_dict = st.secrets["GOOGLE_DRIVE_SERVICE_ACCOUNT"]
 
-    # Write credentials temporarily
+    # Write credentials to a temp file
     creds_path = "/tmp/service_account.json"
     with open(creds_path, "w") as f:
         json.dump(creds_dict, f)
 
-    # Authenticate using Service Account
+    # Configure PyDrive2 for service account auth
     gauth = GoogleAuth()
-    gauth.auth_method = GoogleServiceAccountAuth
-    gauth.ServiceAuth(creds_path)
+    gauth.settings = {
+        "client_config_backend": "service",
+        "service_config": {
+            "client_json_file_path": creds_path,
+        },
+    }
+
+    gauth.ServiceAuth()
     drive = GoogleDrive(gauth)
     return drive
 
 
 def upload_db(drive, folder_id=""):
-    """Upload the events.db file to Google Drive (replace existing one)."""
+    """Upload local events.db to Google Drive."""
     local_path = "events.db"
     if not os.path.exists(local_path):
         return False
 
-    # Delete previous version if exists
+    # Delete previous DB versions in folder
     for file in drive.ListFile({'q': f"'{folder_id}' in parents and title='events.db' and trashed=false"}).GetList():
         file.Delete()
 
@@ -39,9 +45,9 @@ def upload_db(drive, folder_id=""):
 
 
 def download_db(drive, folder_id=""):
-    """Download the events.db file from Google Drive."""
-    file_list = drive.ListFile({'q': f"'{folder_id}' in parents and title='events.db' and trashed=false"}).GetList()
-    if not file_list:
+    """Download events.db from Google Drive."""
+    files = drive.ListFile({'q': f"'{folder_id}' in parents and title='events.db' and trashed=false"}).GetList()
+    if not files:
         return False
-    file_list[0].GetContentFile("events.db")
+    files[0].GetContentFile("events.db")
     return True
