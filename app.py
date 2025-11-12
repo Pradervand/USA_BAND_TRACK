@@ -1,11 +1,9 @@
 import streamlit as st
 import pandas as pd
-from datetime import datetime
-
-# ✅ make sure we import init_db too
+from datetime import datetime, timezone
 from fetch_shows import update_all, get_events, purge_non_july_events, init_db
 
-# --- Initialize database first ---
+# --- Make sure DB exists ---
 init_db()
 purge_non_july_events()
 
@@ -14,8 +12,9 @@ st.title("🎸 USA Band Tracker — Metal / Punk / Goth / Industrial")
 # --- Fetch new events ---
 if st.button("🔄 Fetch latest shows"):
     n = update_all()
-    purge_non_july_events()  # clean non-July events right after fetching
-    st.success(f"✅ Added {n} new shows! (Last updated {datetime.now(datetime.UTC).strftime('%Y-%m-%d %H:%M UTC')})")
+    purge_non_july_events()
+    st.success(f"✅ Added {n} new shows! (Last updated {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M UTC')})")
+
 
 # --- Load and display data ---
 data = get_events()
