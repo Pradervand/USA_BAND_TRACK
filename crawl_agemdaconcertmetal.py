@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-Concerts-Metal crawler (Spyder-stable version)
+Concerts-Metal crawler (Streamlit + Spyder stable version)
 Author: antony.praderva
 """
 
@@ -10,6 +10,7 @@ from bs4 import BeautifulSoup
 from datetime import datetime
 import fetch_shows
 import pandas as pd
+import nest_asyncio
 
 # ---- CONFIG ----
 BASE_URL = "https://www.concerts-metal.com"
@@ -22,6 +23,9 @@ THROTTLE_DELAY = 1.0
 # ----------------
 
 
+# =============================
+# HTTP FETCH WITH RETRIES
+# =============================
 async def fetch(session, url, attempt=0):
     headers = {
         "User-Agent": (
@@ -49,6 +53,9 @@ async def fetch(session, url, attempt=0):
     return None
 
 
+# =============================
+# FETCH DETAILS (GENRE + IMAGE)
+# =============================
 async def fetch_details(session, event_url):
     """Fetch genre + image from individual gig page."""
     html = await fetch(session, event_url)
@@ -73,6 +80,9 @@ async def fetch_details(session, event_url):
     return {"Genre": genre, "Image": image_url}
 
 
+# =============================
+# PARSE STATE PAGE
+# =============================
 async def parse_state_page(session, state):
     """Parse one state page and extract all concerts."""
     url = f"{BASE_URL}/next_US-{state}_{YEAR_FILTER}.html"
@@ -113,7 +123,7 @@ async def parse_state_page(session, state):
             if len(parts) >= 2:
                 venue = parts[1]
 
-        # ✅ placeholders for details filled later
+        # placeholders for later
         genre = "Unknown"
         image_url = ""
 
@@ -134,6 +144,9 @@ async def parse_state_page(session, state):
     return shows
 
 
+# =============================
+# MAIN ASYNC CRAWLER
+# =============================
 async def crawl_concertsmetal_async():
     if not TEST_MODE:
         fetch_shows.init_db()
@@ -148,7 +161,7 @@ async def crawl_concertsmetal_async():
         # Fetch genre + image for each event
         tasks, mapping = [], []
         for e in all_events:
-            tasks.append(fetch_details(session, e["URL"]))
+            tasks.append(fetch_details(session, e["url"]))  # ✅ lowercase
             mapping.append(e)
 
         details = await asyncio.gather(*tasks, return_exceptions=True)
@@ -156,14 +169,16 @@ async def crawl_concertsmetal_async():
         events = []
         for e, d in zip(mapping, details):
             if isinstance(d, dict):
-                e["Genre"] = d["Genre"]
-                e["Image"] = d["Image"]
+                e["genre"] = d["Genre"]
+                e["image"] = d["Image"]
             else:
-                e["Genre"], e["Image"] = "Unknown", ""
+                e["genre"], e["image"] = "Unknown", ""
             events.append(e)
 
         if TEST_MODE:
-            df = pd.DataFrame(events, columns=["Artist", "Genre", "Venue", "City", "State", "Date", "URL", "Source", "Image"])
+            df = pd.DataFrame(events, columns=[
+                "artist", "genre", "venue", "city", "state", "date", "url", "source", "image"
+            ])
             print("\n🧪 TEST MODE — Preview table:\n")
             print(df.to_string(index=False))
         else:
@@ -173,6 +188,9 @@ async def crawl_concertsmetal_async():
     return len(events)
 
 
+# =============================
+# WRAPPER FOR STREAMLIT SAFETY
+# =============================
 def crawl_concertsmetal():
     try:
         loop = asyncio.get_running_loop()
@@ -180,10 +198,8 @@ def crawl_concertsmetal():
             return asyncio.ensure_future(crawl_concertsmetal_async())
     except RuntimeError:
         pass
-    import nest_asyncio
     nest_asyncio.apply()
     return asyncio.get_event_loop().run_until_complete(crawl_concertsmetal_async())
-
 
 
 if __name__ == "__main__":
