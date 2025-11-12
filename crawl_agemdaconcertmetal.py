@@ -11,7 +11,6 @@ from datetime import datetime
 import fetch_shows
 import pandas as pd
 import nest_asyncio
-import os
 
 # ---- CONFIG ----
 BASE_URL = "https://www.concerts-metal.com"
@@ -22,10 +21,7 @@ TEST_MODE = False
 RETRY_LIMIT = 2
 THROTTLE_DELAY = 1.0
 # ----------------
-# --- Ensure we use the same persistent DB ---
-DB = fetch_shows.DB
-if not os.path.exists(os.path.dirname(DB)):
-    os.makedirs(os.path.dirname(DB), exist_ok=True)
+
 
 # =============================
 # HTTP FETCH WITH RETRIES

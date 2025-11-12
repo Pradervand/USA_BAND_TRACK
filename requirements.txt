@@ -5,6 +5,3 @@ streamlit-autorefresh
 aiohttp
 beautifulsoup4
 nest_asyncio
-pydrive2
-google-auth
-google-auth-oauthlib
