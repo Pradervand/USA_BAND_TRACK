@@ -130,3 +130,17 @@ else:
                 use_container_width=True,
                 hide_index=True
             )
+
+
+import streamlit as st
+import crawl_concertsmetal
+
+st.sidebar.title("Crawler Control")
+
+if st.sidebar.button("🕷️ Run Concerts-Metal Crawler"):
+    with st.spinner("Crawling shows... this may take a few minutes ⏳"):
+        try:
+            added = crawl_concertsmetal.crawl_concertsmetal()
+            st.success(f"Crawl finished! ✅ {added} new events added.")
+        except Exception as e:
+            st.error(f"❌ Crawler failed: {e}")
