@@ -11,8 +11,9 @@ drive_service = init_drive()
 folder_id = st.secrets["GOOGLE_DRIVE_FOLDER_ID"]
 os.makedirs("data", exist_ok=True)
 
-# Download DB at startup
-download_db(drive, folder_id=FOLDER_ID)
+download_db(drive_service, folder_id)
+# ... run your crawler, update DB ...
+upload_db(drive_service, folder_id)
 init_db()  # your existing DB init
 
 # Upload DB after fetch
