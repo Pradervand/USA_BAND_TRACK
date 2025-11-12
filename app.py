@@ -1,7 +1,7 @@
 import streamlit as st
 import pandas as pd
 from datetime import datetime, timezone
-from fetch_shows import update_all, get_events, purge_non_july_events, init_db
+from fetch_shows import update_all, get_events, purge_non_july_events
 from crawl_agemdaconcertmetal import crawl_concertsmetal  # make sure this file is in the same folder
 
 # --- Ensure database exists ---
