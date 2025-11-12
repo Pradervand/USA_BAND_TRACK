@@ -2,7 +2,6 @@ import streamlit as st
 import pandas as pd
 from datetime import datetime, timezone
 from fetch_shows import update_all, get_events, purge_non_july_events, init_db
-import crawl_concertsmetal
 
 # --- Ensure database exists ---
 init_db()
@@ -130,17 +129,3 @@ else:
                 use_container_width=True,
                 hide_index=True
             )
-
-
-import streamlit as st
-import crawl_concertsmetal
-
-st.sidebar.title("Crawler Control")
-
-if st.sidebar.button("🕷️ Run Concerts-Metal Crawler"):
-    with st.spinner("Crawling shows... this may take a few minutes ⏳"):
-        try:
-            added = crawl_concertsmetal.crawl_concertsmetal()
-            st.success(f"Crawl finished! ✅ {added} new events added.")
-        except Exception as e:
-            st.error(f"❌ Crawler failed: {e}")
