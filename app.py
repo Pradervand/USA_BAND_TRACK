@@ -5,24 +5,26 @@ from datetime import datetime
 
 st.title("🎸 USA Band Tracker — Metal / Punk / Goth / Industrial")
 
+# --- Button to update events ---
 if st.button("🔄 Fetch latest shows"):
     n = update_all()
     st.success(f"✅ Added {n} new shows! (Last updated {datetime.utcnow().strftime('%Y-%m-%d %H:%M UTC')})")
 
+# --- Load events from database ---
 data = get_events()
 if not data:
     st.info("No events stored yet — click 'Fetch latest shows' above.")
 else:
     df = pd.DataFrame(
-    data,
-    columns=["Artist", "Genre", "Venue", "City", "State", "Date", "URL", "Source"]
-)
+        data,
+        columns=["Artist", "Genre", "Venue", "City", "State", "Date", "URL", "Source"]
+    )
 
+    # Format URL as markdown link
+    df["URL"] = df["URL"].apply(lambda x: f"[Link]({x})" if x else "")
 
-
-    df["URL"] = df["URL"].apply(lambda x: f"[Link]({x})")
-
-   def color_by_genre(val):
+    # --- Define color scheme for genres ---
+    def color_by_genre(val):
         if not val:
             return ""
         val = str(val).lower()
@@ -36,8 +38,8 @@ else:
             return "background-color: #333366; color: white;"
         return ""
 
+    # --- Display dataframe with styling ---
     st.dataframe(
         df.style.map(color_by_genre, subset=["Genre"]),
         width="stretch"
     )
-
