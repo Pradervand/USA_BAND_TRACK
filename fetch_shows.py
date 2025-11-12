@@ -68,47 +68,39 @@ def save_event(e):
     conn.close()
 
 def fetch_ticketmaster():
-    """Fetch metal/punk/goth shows from Ticketmaster for 2026."""
+    """Fetch metal/punk/goth shows from Ticketmaster for 2026 using genre filters."""
     new_events = 0
     base_url = "https://app.ticketmaster.com/discovery/v2/events.json"
 
+    GENRE_IDS = [
+        "KnvZfZ7vAvt",  # Metal
+        "KnvZfZ7vA6t",  # Punk
+        "KnvZfZ7vAeA",  # Rock (includes Goth, Industrial)
+        "KnvZfZ7vAvF",  # Electronic
+    ]
+
     for st in STATES:
-        for kw in KEYWORDS:
+        for gid in GENRE_IDS:
             params = {
                 "apikey": TM_API_KEY,
                 "classificationName": "music",
+                "genreId": gid,
                 "stateCode": st,
-                "keyword": kw,
                 "size": 100,
                 "startDateTime": START_DATE,
                 "endDateTime": END_DATE,
+                "countryCode": "US",
             }
 
             try:
                 r = requests.get(base_url, params=params, timeout=15)
                 if r.status_code != 200:
-                    print(f"⚠️ Error {r.status_code} for {st} / {kw}")
+                    print(f"⚠️ Error {r.status_code} for {st} / genre {gid}")
                     continue
 
                 events = r.json().get("_embedded", {}).get("events", [])
                 for ev in events:
-                    name = ev.get("name", "").lower()
-
-                    # --- Check genre and subgenre ---
-                    genres = []
-                    for c in ev.get("classifications", []):
-                        for gkey in ["genre", "subGenre", "segment"]:
-                            g = c.get(gkey, {}).get("name", "")
-                            if g:
-                                genres.append(g.lower())
-
-                    # keep if name or genre/subgenre matches any keyword
-                    match = any(k in name for k in KEYWORDS) or any(
-                        k in g for g in genres for k in KEYWORDS
-                    )
-                    if not match:
-                        continue
-
+                    name = ev.get("name", "")
                     venues = ev.get("_embedded", {}).get("venues", [{}])
                     venue = venues[0].get("name", "Unknown Venue")
                     city = venues[0].get("city", {}).get("name", "Unknown")
@@ -120,7 +112,7 @@ def fetch_ticketmaster():
                     if not already_seen(eid):
                         save_event({
                             "id": eid,
-                            "artist": ev.get("name", ""),
+                            "artist": name,
                             "venue": venue,
                             "city": city,
                             "state": state,
@@ -131,9 +123,10 @@ def fetch_ticketmaster():
                         new_events += 1
 
             except Exception as e:
-                print(f"❌ Exception fetching {st} / {kw}: {e}")
+                print(f"❌ Exception fetching {st} / genre {gid}: {e}")
 
     return new_events
+
 
 
 
