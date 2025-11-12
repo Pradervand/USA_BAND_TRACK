@@ -4,3 +4,4 @@ pandas
 streamlit-autorefresh
 aiohttp
 beautifulsoup4
+nest_asyncio
