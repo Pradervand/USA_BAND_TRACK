@@ -23,7 +23,7 @@ KEYWORDS = [
 ]
 
 START_DATE = "2026-07-01T00:00:00Z"
-END_DATE = "2026-7-31T23:59:59Z"
+END_DATE = "2026-07-31T23:59:59Z"
 
 # ─────────────────────────── DB INIT ────────────────────────────
 
@@ -73,8 +73,9 @@ def save_event(e):
            (id, artist, venue, city, state, genre, date, url, source, inserted_at)
            VALUES (?,?,?,?,?,?,?,?,?,?)""",
         (
-            e["id"], e["artist"], e["venue"], e["city"], e["state"], e.get("genre", "Unknown"),
-            e["date"], e["url"], e["source"], datetime.datetime.utcnow().isoformat(),
+            e["id"], e["artist"], e["venue"], e["city"], e["state"],
+            e.get("genre", "Unknown"), e["date"], e["url"],
+            e["source"], datetime.datetime.now(datetime.timezone.utc).isoformat(),
         ),
     )
     conn.commit()
@@ -103,8 +104,18 @@ def fetch_ticketmaster():
                 print(f"⚠️ Error {r.status_code} for {st}")
                 continue
 
+            # handle pagination
             data = r.json()
-            events = data.get("_embedded", {}).get("events", [])
+            events = []
+            while True:
+                chunk = data.get("_embedded", {}).get("events", [])
+                events.extend(chunk)
+                next_link = data.get("_links", {}).get("next", {}).get("href")
+                if not next_link:
+                    break
+                time.sleep(0.5)
+                next_url = f"https://app.ticketmaster.com{next_link}&apikey={TM_API_KEY}"
+                data = requests.get(next_url, timeout=15).json()
 
             for ev in events:
                 name = ev.get("name", "").lower()
@@ -116,7 +127,6 @@ def fetch_ticketmaster():
                     genre = g or ""
                     subgenre = sg or ""
                 
-                # Combine name + genre text to check against your list
                 text = f"{name} {genre} {subgenre}".lower()
                 if not any(k in text for k in KEYWORDS):
                     continue
@@ -146,6 +156,7 @@ def fetch_ticketmaster():
         except Exception as e:
             print(f"❌ Exception fetching {st}: {e}")
 
+    print(f"✅ Added {new_events} new Ticketmaster events.")
     return new_events
 
 # ─────────────────────────── RETRIEVAL ────────────────────────────
@@ -154,7 +165,7 @@ def get_events():
     conn = sqlite3.connect(DB)
     cur = conn.cursor()
     cur.execute(
-        "SELECT artist,venue,city,state,genre,date,url,source FROM events ORDER BY date ASC"
+        "SELECT artist, genre, venue, city, state, date, url, source FROM events ORDER BY date ASC"
     )
     rows = cur.fetchall()
     conn.close()
@@ -164,11 +175,6 @@ def update_all():
     init_db()
     added = fetch_ticketmaster()
     return added
-
-import sqlite3
-from datetime import datetime
-
-DB = "events.db"  # adjust if your DB path differs
 
 def purge_non_july_events():
     conn = sqlite3.connect(DB)
@@ -182,4 +188,3 @@ def purge_non_july_events():
     conn.close()
     print(f"🗑️ Removed {deleted} events outside July.")
     return deleted
-
