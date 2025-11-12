@@ -37,3 +37,9 @@ else:
 
     st.markdown(f"### 🎸 Upcoming Shows ({len(filtered_df)} total)")
     st.dataframe(filtered_df, use_container_width=True)
+
+from streamlit_autorefresh import st_autorefresh
+
+# Refresh once every 24 hours
+st_autorefresh(interval=24 * 60 * 60 * 1000, key="daily_refresh")
+
