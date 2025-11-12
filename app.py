@@ -13,7 +13,6 @@ st.set_page_config(page_title="USA Band Tracker", layout="wide")
 st.title("🎸 USA Road Trip Gig Tracker")
 
 # --- Unified Fetch + Debug sidebar ---
-st.subheader("🎸 Fetch New Shows")
 col1, col2 = st.columns([3, 1])
 
 with col1:
