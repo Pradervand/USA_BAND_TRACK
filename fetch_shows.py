@@ -4,7 +4,25 @@ import requests, sqlite3, datetime
 DB = "events.db"
 TM_API_KEY = "YOUR_TICKETMASTER_API_KEY"
 STATES = ["CA","AZ","UT","CO","WY","MT","WA"]
-KEYWORDS = ["metal","punk","goth","hardcore","darkwave","industrial","thrash","doom"]
+KEYWORDS = [
+    "metal","punk","goth","hardcore","darkwave","industrial","thrash","doom",
+    # black metal
+    "black metal","atmospheric black metal","raw black metal","depressive black metal","dsbm",
+    "melodic black metal","symphonic black metal","post-black metal","ambient black metal",
+    "blackened death metal","blackened thrash","blackened hardcore","folk black metal",
+    "pagan black metal","viking metal","occult black metal","avant-garde black metal","industrial black metal",
+    # doom/sludge/drone
+    "doom metal","stoner metal","sludge metal","funeral doom","death doom","black doom","drone","drone metal",
+    # punk/goth/darkwave
+    "hardcore punk","crust","d-beat","anarcho punk","post-punk","dark post-punk","coldwave",
+    "goth rock","deathrock","minimal wave","synthwave","new wave",
+    # industrial/electronic
+    "ebm","electro-industrial","power electronics","industrial metal","aggrotech",
+    "dark electro","noise","martial industrial","ritual ambient","dark ambient","cyberpunk","techno-industrial",
+    # atmospheric/experimental
+    "post-metal","shoegaze","blackgaze","post-rock","ambient","noise rock","experimental","avant-garde"
+]
+
 
 def init_db():
     conn = sqlite3.connect(DB)
