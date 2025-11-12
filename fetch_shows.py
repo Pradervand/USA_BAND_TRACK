@@ -22,8 +22,8 @@ KEYWORDS = [
     "post-metal","shoegaze","blackgaze","post-rock","ambient","noise rock","experimental","avant-garde"
 ]
 
-START_DATE = "2026-01-01T00:00:00Z"
-END_DATE = "2026-12-31T23:59:59Z"
+START_DATE = "2026-07-01T00:00:00Z"
+END_DATE = "2026-7-31T23:59:59Z"
 
 # ─────────────────────────── DB INIT ────────────────────────────
 
