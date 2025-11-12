@@ -68,55 +68,63 @@ def save_event(e):
     conn.close()
 
 def fetch_ticketmaster():
-    """Fetch metal/punk/goth shows from Ticketmaster for 2026."""
+    """Fetch metal/punk/goth shows from Ticketmaster for 2026 by keyword per state."""
     new_events = 0
     base_url = "https://app.ticketmaster.com/discovery/v2/events.json"
-    for st in STATES:
-        params = {
-            "apikey": TM_API_KEY,
-            "classificationName": "music",
-            "stateCode": st,
-            "size": 100,
-            "startDateTime": START_DATE,
-            "endDateTime": END_DATE,
-        }
-        try:
-            r = requests.get(base_url, params=params, timeout=15)
-            if r.status_code != 200:
-                print(f"⚠️ Error {r.status_code} for {st}")
-                continue
 
-            events = r.json().get("_embedded", {}).get("events", [])
-            for ev in events:
-                name = ev.get("name", "")
-                if not any(k in name.lower() for k in KEYWORDS):
+    for st in STATES:
+        for kw in KEYWORDS:
+            params = {
+                "apikey": TM_API_KEY,
+                "classificationName": "music",
+                "stateCode": st,
+                "keyword": kw,
+                "size": 100,
+                "startDateTime": START_DATE,
+                "endDateTime": END_DATE,
+            }
+            try:
+                r = requests.get(base_url, params=params, timeout=15)
+                if r.status_code != 200:
+                    print(f"⚠️ Error {r.status_code} for {st}, {kw}")
                     continue
 
-                venues = ev.get("_embedded", {}).get("venues", [{}])
-                venue = venues[0].get("name", "Unknown Venue")
-                city = venues[0].get("city", {}).get("name", "Unknown")
-                state = venues[0].get("state", {}).get("stateCode", st)
-                date = ev.get("dates", {}).get("start", {}).get("localDate", "")
-                url = ev.get("url", "")
-                eid = "tm_" + ev.get("id", "")
+                events = r.json().get("_embedded", {}).get("events", [])
+                for ev in events:
+                    name = ev.get("name", "")
+                    # still double-check keyword match in case of false positives
+                    if not any(k in name.lower() for k in KEYWORDS):
+                        continue
 
-                if not already_seen(eid):
-                    save_event({
-                        "id": eid,
-                        "artist": name,
-                        "venue": venue,
-                        "city": city,
-                        "state": state,
-                        "date": date,
-                        "url": url,
-                        "source": "Ticketmaster"
-                    })
-                    new_events += 1
+                    venues = ev.get("_embedded", {}).get("venues", [{}])
+                    venue = venues[0].get("name", "Unknown Venue")
+                    city = venues[0].get("city", {}).get("name", "Unknown")
+                    state = venues[0].get("state", {}).get("stateCode", st)
+                    date = ev.get("dates", {}).get("start", {}).get("localDate", "")
+                    url = ev.get("url", "")
+                    eid = "tm_" + ev.get("id", "")
 
-        except Exception as e:
-            print(f"❌ Exception fetching {st}: {e}")
+                    if not already_seen(eid):
+                        save_event({
+                            "id": eid,
+                            "artist": name,
+                            "venue": venue,
+                            "city": city,
+                            "state": state,
+                            "date": date,
+                            "url": url,
+                            "source": "Ticketmaster"
+                        })
+                        new_events += 1
+
+                # optional: short delay to avoid hitting API rate limits
+                # time.sleep(0.3)
+
+            except Exception as e:
+                print(f"❌ Exception fetching {st} / {kw}: {e}")
 
     return new_events
+
 
 def get_events():
     conn = sqlite3.connect(DB)
