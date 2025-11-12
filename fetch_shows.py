@@ -38,6 +38,17 @@ def ensure_genre_column():
         print("🆕 Added 'genre' column to events table")
     conn.close()
 
+def ensure_image_column():
+    conn = sqlite3.connect(DB)
+    cur = conn.cursor()
+    cur.execute("PRAGMA table_info(events)")
+    cols = [r[1] for r in cur.fetchall()]
+    if "image" not in cols:
+        cur.execute("ALTER TABLE events ADD COLUMN image TEXT")
+        conn.commit()
+        print("🆕 Added 'image' column to events table")
+    conn.close()
+
 def init_db():
     conn = sqlite3.connect(DB)
     conn.execute("""
@@ -48,6 +59,7 @@ def init_db():
         city TEXT,
         state TEXT,
         genre TEXT,
+        image TEXT,
         date TEXT,
         url TEXT,
         source TEXT,
@@ -57,6 +69,7 @@ def init_db():
     conn.commit()
     conn.close()
     ensure_genre_column()
+    ensure_image_column()
 
 def already_seen(event_id):
     conn = sqlite3.connect(DB)
@@ -70,12 +83,13 @@ def save_event(e):
     conn = sqlite3.connect(DB)
     conn.execute(
         """INSERT OR IGNORE INTO events
-           (id, artist, venue, city, state, genre, date, url, source, inserted_at)
-           VALUES (?,?,?,?,?,?,?,?,?,?)""",
+           (id, artist, venue, city, state, genre, image, date, url, source, inserted_at)
+           VALUES (?,?,?,?,?,?,?,?,?,?,?)""",
         (
             e["id"], e["artist"], e["venue"], e["city"], e["state"],
-            e.get("genre", "Unknown"), e["date"], e["url"],
-            e["source"], datetime.datetime.now(datetime.timezone.utc).isoformat(),
+            e.get("genre", "Unknown"), e.get("image", None),
+            e["date"], e["url"], e["source"],
+            datetime.datetime.now(datetime.timezone.utc).isoformat(),
         ),
     )
     conn.commit()
@@ -133,6 +147,8 @@ def fetch_ticketmaster():
                 state = venues[0].get("state", {}).get("stateCode", st)
                 date = ev.get("dates", {}).get("start", {}).get("localDate", "")
                 url = ev.get("url", "")
+                images = ev.get("images", [])
+                img_url = images[0]["url"] if images else None
                 eid = "tm_" + ev.get("id", "")
 
                 if not already_seen(eid):
@@ -143,6 +159,7 @@ def fetch_ticketmaster():
                         "city": city,
                         "state": state,
                         "genre": f"{genre} / {subgenre}",
+                        "image": img_url,
                         "date": date,
                         "url": url,
                         "source": "Ticketmaster",
@@ -165,7 +182,7 @@ def get_events():
     conn = sqlite3.connect(DB)
     cur = conn.cursor()
     cur.execute(
-        "SELECT artist, genre, venue, city, state, date, url, source FROM events ORDER BY date ASC"
+        "SELECT artist, genre, venue, city, state, date, url, source, image FROM events ORDER BY date ASC"
     )
     rows = cur.fetchall()
     conn.close()
